@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -389,10 +392,9 @@ func ListRelationsToSelect(
 	display := container.NewBorder(
 		widget.NewToolbar(
 			widget.NewToolbarAction(
-				theme.FileImageIcon(),
+				theme.ComputerIcon(),
 				func() {
-					fmt.Printf("Create the plantuml")
-					fmt.Printf("%v\n", selectedRelations)
+					openbrowser(fmt.Sprintf("https://griffith.iserver365.com/object/%s/details", basics.ObjectId))
 				},
 			),
 			widget.NewToolbarAction(
@@ -932,7 +934,6 @@ func LacFields() modelFields {
 }
 
 /** Generic utility functions **/
-/*
 func openbrowser(url string) {
 	var err error
 
@@ -950,4 +951,3 @@ func openbrowser(url string) {
 		log.Fatal(err)
 	}
 }
-*/
