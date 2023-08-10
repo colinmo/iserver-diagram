@@ -1,0 +1,10 @@
+testdata.go
+*.swp
+data/
+test/
+.DS_Store
+certificate/
+manually-edited-iServer-export.md
+output
+bak
+.vscode

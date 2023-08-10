@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink" style="background-color: rgb(0, 169, 157); flex-shrink: 0; width: 1rem; height: 1rem;" focusable="false">
+    <defs>
+        <symbol viewBox="0 0 512 512" id="physicalTechnologyComponent">
+            <path d="M448,96L448,96C448,96,448,96,448,96v256H64V96H448 M448,64H64c-17.7,0-32,14.3-32,32v256 c0,17.7,14.3,32,32,32h384c17.7,0,32-14.3,32-32V96C480,78.3,465.7,64,448,64L448,64z M417.1,416H94.9L32,480h448L417.1,416z"></path>
+            <text dominant-baseline="middle" text-anchor="middle" x="238" y="302" fill="black" stroke="rgb(100,181,246)" stroke-width="10" style="font-size: 200px;font-family: Arial;font-weight: bold;">PTC</text>
+        </symbol>
+    </defs>
+    <use fill="white" viewBox="0 0 500 500" xlink:href="#physicalTechnologyComponent"></use>
+</svg>
