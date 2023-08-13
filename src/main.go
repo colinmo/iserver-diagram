@@ -251,7 +251,7 @@ func ListRelationsToSelect(
 	allFields.stringValues["Description"].Wrapping = fyne.TextWrapWord
 	json.Unmarshal([]byte(myApp.Preferences().StringWithFallback("ProductManagers", "[]")), &allFields.selectValues["GU::Product Manager"].Options)
 	allFields.stringValues["Title"].SetText(basics.Name)
-	selectedRelations := map[string]*azure.RelationStruct{}
+	selectedRelations := map[string]azure.RelationStruct{}
 	for i := range allFields.dateValues {
 		allFields.dateValues[i].Validator = dateValidator
 	}
@@ -274,28 +274,58 @@ func ListRelationsToSelect(
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
 		}
 	}
-	relationshipList := widget.NewList(
-		func() int { return len(things) },
-		func() fyne.CanvasObject {
+	knownKids := map[widget.TreeNodeID][]widget.TreeNodeID{}
+	knownBits := map[widget.TreeNodeID]azure.RelationStruct{}
+	for _, x := range things {
+		knownKids[""] = append(knownKids[""], x.RelationshipId)
+		knownBits[x.RelationshipId] = x
+	}
+
+	relationshipList := widget.NewTree(
+		func(id widget.TreeNodeID) []widget.TreeNodeID {
+			y, x := knownKids[id]
+			if x {
+				return y
+			}
+			return []widget.TreeNodeID{}
+		},
+		func(id widget.TreeNodeID) bool {
+			_, here := knownKids[id]
+			return here
+		},
+		func(branch bool) fyne.CanvasObject {
 			return container.NewHBox(widget.NewCheck("Diag", func(value bool) {}))
 		},
-		func(id int, item fyne.CanvasObject) {
+		func(id widget.TreeNodeID, branch bool, item fyne.CanvasObject) {
 			checkbox := &(item.(*fyne.Container).Objects[0])
-			fmt.Printf("%v:%s\n", (*checkbox).(*widget.Check).Checked, things[id].LeadObject.Name+" "+things[id].RelationshipType.LeadToMemberDirection+" "+things[id].MemberObject.Name)
 			(*checkbox).(*widget.Check).OnChanged = func(value bool) {
 				if value {
-					selectedRelations[things[id].RelationshipId] = &things[id]
+					selectedRelations[knownBits[id].RelationshipId] = knownBits[id]
+					_, here := knownKids[knownBits[id].RelationshipId]
+					if !here {
+						go func() {
+							knownKids[knownBits[id].RelationshipId] = []widget.TreeNodeID{}
+							rels := append(az.FindRelations(knownBits[id].LeadObjectId), az.FindRelations(knownBits[id].MemberObjectId)...)
+							for _, x := range rels {
+								_, here2 := knownBits[x.RelationshipId]
+								if !here2 {
+									knownKids[knownBits[id].RelationshipId] = append(knownKids[knownBits[id].RelationshipId], x.RelationshipId)
+									knownBits[x.RelationshipId] = x
+								}
+							}
+						}()
+					}
 				} else {
-					delete(selectedRelations, things[id].RelationshipId)
+					delete(selectedRelations, knownBits[id].RelationshipId)
 				}
 			}
 			(*checkbox).(*widget.Check).Text = (fmt.Sprintf(
 				"%s %s %s",
-				things[id].LeadObject.Name,
-				things[id].RelationshipType.LeadToMemberDirection,
-				things[id].MemberObject.Name,
+				knownBits[id].LeadObject.Name,
+				knownBits[id].RelationshipType.LeadToMemberDirection,
+				knownBits[id].MemberObject.Name,
 			))
-			_, x := selectedRelations[things[id].RelationshipId]
+			_, x := selectedRelations[knownBits[id].RelationshipId]
 			(*checkbox).(*widget.Check).SetChecked(x)
 			(*checkbox).Refresh()
 		},
