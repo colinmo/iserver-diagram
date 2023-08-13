@@ -259,8 +259,7 @@ func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, 
 	return false, "Big ol' json packing failure"
 }
 
-func (a *AzureAuth) FindRelationsThen(id string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
-
+func (a *AzureAuth) FindRelations(id string) []RelationStruct {
 	toReturn := []RelationStruct{}
 
 	type objects struct {
@@ -300,8 +299,11 @@ func (a *AzureAuth) FindRelationsThen(id string, putInto laterRelationUpdate, th
 		query = bits.RawQuery
 		time.Sleep(100 * time.Millisecond)
 	}
+	return toReturn
+}
 
-	putInto(a.GetImportantFields(id), toReturn, thenWindow)
+func (a *AzureAuth) FindRelationsThen(id string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
+	putInto(a.GetImportantFields(id), a.FindRelations(id), thenWindow)
 }
 
 func (a *AzureAuth) GetProductManagersThen(department string, putInto laterStringList, thenWindow *fyne.Window) {

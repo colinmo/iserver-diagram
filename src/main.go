@@ -280,20 +280,24 @@ func ListRelationsToSelect(
 			return container.NewHBox(widget.NewCheck("Diag", func(value bool) {}))
 		},
 		func(id int, item fyne.CanvasObject) {
-			item.(*fyne.Container).Objects[0].(*widget.Check).OnChanged = func(value bool) {
+			checkbox := &(item.(*fyne.Container).Objects[0])
+			fmt.Printf("%v:%s\n", (*checkbox).(*widget.Check).Checked, things[id].LeadObject.Name+" "+things[id].RelationshipType.LeadToMemberDirection+" "+things[id].MemberObject.Name)
+			(*checkbox).(*widget.Check).OnChanged = func(value bool) {
 				if value {
 					selectedRelations[things[id].RelationshipId] = &things[id]
 				} else {
 					delete(selectedRelations, things[id].RelationshipId)
 				}
 			}
-			item.(*fyne.Container).Objects[0].(*widget.Check).Text = (fmt.Sprintf(
+			(*checkbox).(*widget.Check).Text = (fmt.Sprintf(
 				"%s %s %s",
 				things[id].LeadObject.Name,
 				things[id].RelationshipType.LeadToMemberDirection,
 				things[id].MemberObject.Name,
 			))
-			item.(*fyne.Container).Objects[0].Refresh()
+			_, x := selectedRelations[things[id].RelationshipId]
+			(*checkbox).(*widget.Check).SetChecked(x)
+			(*checkbox).Refresh()
 		},
 	)
 	relationshipWindow := container.NewBorder(
