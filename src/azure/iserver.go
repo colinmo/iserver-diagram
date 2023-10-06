@@ -95,6 +95,7 @@ type AttributeValue struct {
 	Values        []ValuesValue `json:"Values,omitempty"`
 }
 type SaveObject struct {
+	Name            string      `json:"Name"`
 	AttributeValues []SaveValue `json:"AttributeValues"`
 }
 type SaveValue struct {
@@ -144,10 +145,12 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 	}
 
 	path := "/odata/Objects"
-	query := fmt.Sprintf(
-		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName%%20in%%20('ObjectId','Name','ObjectType'))&$filter=Model/Name%%20eq%%20'Baseline%%20Architecture'%%20and%%20ObjectType/Name%%20in%%20('Physical%%20Application%%20Component','Physical%%20Technology%%20Component','Logical%%20Application%%20Component')%%20and%%20indexOf(tolower(Name),'%s')%%20gt%%20-1`,
-		strings.ToLower(lookFor),
-	)
+	query := strings.ReplaceAll(
+		fmt.Sprintf(
+			`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('ObjectId','Name','ObjectType'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component') and indexOf(tolower(Name),'%s') gt -1`,
+			strings.ToLower(lookFor)),
+		" ",
+		"%20")
 	for {
 		var oneCall objects
 		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
@@ -182,7 +185,7 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	toReturn := IServerObjectStruct{}
 
 	path := fmt.Sprintf("/odata/Objects(%s)", id)
-	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','GU::Product%20Manager','Owner','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Data%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier'))`
+	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','GU::Product%20Manager','Owner','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier'))`
 	mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 	if err != nil {
 		log.Fatalf("failed to call endpoint %v\n", err)
@@ -197,8 +200,10 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	return toReturn
 }
 
-func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, selectValues map[string]string, dateValues map[string]string) (bool, string) {
+func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, selectValues map[string]string, dateValues map[string]string) (bool, string, string) {
 	saveValues := SaveObject{}
+	saveValues.Name = stringValues["Title"]
+	delete(stringValues, "Title")
 	for i, e := range stringValues {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 			AttributeName:     i,
@@ -212,12 +217,15 @@ func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, 
 		TextValue:         selectValues["GU::Product Manager"],
 	})
 	delete(selectValues, "GU::Product Manager")
-	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
-		AttributeName:     "GU::Managed outside of DS",
-		AttributeCategory: "TrueFalse",
-		BooleanValue:      selectValues["GU::Managed outside of DS"] == "True",
-	})
-	delete(selectValues, "GU::Managed outside of DS")
+	_, y := selectValues["GU::Managed outside of DS"]
+	if y {
+		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
+			AttributeName:     "GU::Managed outside of DS",
+			AttributeCategory: "TrueFalse",
+			BooleanValue:      selectValues["GU::Managed outside of DS"] == "True",
+		})
+		delete(selectValues, "GU::Managed outside of DS")
+	}
 	for i, e := range selectValues {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 			AttributeName:     i,
@@ -236,11 +244,23 @@ func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, 
 	}
 	x, err := json.Marshal(saveValues)
 	if err == nil {
-		path := fmt.Sprintf("/odata/Objects(%s)", id)
-		query := ``
-		mep, err := a.CallRestEndpoint("PATCH", path, x, query)
-		if err != nil {
-			log.Fatalf("failed to call endpoint %v\n", err)
+		var mep io.ReadCloser
+		if id == "" {
+			// Create
+			path := "/odata/Objects"
+			query := ``
+			mep, err = a.CallRestEndpoint("POST", path, x, query)
+			if err != nil {
+				log.Fatalf("failed to call endpoint %v\n", err)
+			}
+		} else {
+			// Update
+			path := fmt.Sprintf("/odata/Objects(%s)", id)
+			query := ``
+			mep, err = a.CallRestEndpoint("PATCH", path, x, query)
+			if err != nil {
+				log.Fatalf("failed to call endpoint %v\n", err)
+			}
 		}
 		defer mep.Close()
 		toReturn := struct {
@@ -248,15 +268,20 @@ func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, 
 			Messages []struct {
 				Message string `json:"message"`
 			} `json:"messages"`
+			SuccessMessage struct {
+				MessageDefinition struct {
+					ObjectId string `json:"ObjectId"`
+				} `json:"MessageDefinition"`
+			} `json:"SuccessMessage"`
 		}{}
 		bytemep, err := io.ReadAll(mep)
 		json.Unmarshal(bytemep, &toReturn)
 		if err != nil {
 			log.Fatalf("failed to read io.Reader %v\n", err)
 		}
-		return toReturn.Success, toReturn.Messages[0].Message
+		return toReturn.Success, toReturn.Messages[0].Message, toReturn.SuccessMessage.MessageDefinition.ObjectId
 	}
-	return false, "Big ol' json packing failure"
+	return false, "Big ol' json packing failure", ""
 }
 
 func (a *AzureAuth) FindRelations(id string) []RelationStruct {

@@ -121,5 +121,5 @@ func TestDraw(t *testing.T) {
 		{From: azdw, To: ping, Direction: "Up"},
 	}
 	x := d.Draw()
-	log.Fatal("\n" + x)
+	log.Print("\n" + x)
 }

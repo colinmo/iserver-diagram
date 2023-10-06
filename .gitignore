@@ -9,3 +9,5 @@ output
 bak
 .vscode
 *conflicted*
+src/main.go.bak
+.gitignore

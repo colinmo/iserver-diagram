@@ -83,6 +83,8 @@ func main() {
 	dept.SetSelected(myApp.Preferences().StringWithFallback("Department", "nope"))
 	pms := widget.NewMultiLineEntry()
 	pms.SetText(myApp.Preferences().StringWithFallback("ProductManagers", "[]"))
+	savepath := widget.NewEntry()
+	savepath.SetText(myApp.Preferences().StringWithFallback("SavePath", ""))
 	searchButton := widget.NewButton(
 		"Go",
 		func() {
@@ -102,7 +104,37 @@ func main() {
 			"Diagrams",
 			container.NewBorder(
 				container.NewBorder(
-					nil,
+					widget.NewToolbar(
+						widget.NewToolbarAction(
+							theme.FileIcon(),
+							func() {
+								fmt.Print("Prompt for Object Type")
+								fmt.Print("Open edit window")
+								windowTitle := "New Physical Application Component"
+								var lookupWindow fyne.Window
+								var x bool
+								if lookupWindow, x = windows[windowTitle]; !x {
+									addWindowFor(windowTitle, 650, 850)
+									lookupWindow = windows[windowTitle]
+								}
+								def := azure.IServerObjectStruct{
+									Name:     "bob",
+									ObjectId: "",
+									AttributeValues: []azure.AttributeValue{
+										{StringValue: "", AttributeName: "GU::Product Manager"},
+									},
+									ObjectType: struct {
+										Name string `json:"Name"`
+									}{Name: "Physical Application Component"},
+								}
+								UpdateMessage("Loading")
+								lookupWindow.Show()
+								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
+								windows[windowTitle] = lookupWindow
+								ListRelationsToSelect(def, []azure.RelationStruct{}, &lookupWindow)
+							},
+						),
+					),
 					nil,
 					widget.NewLabel("Looking for"),
 					searchButton,
@@ -138,10 +170,12 @@ func main() {
 					widget.NewForm(
 						widget.NewFormItem("Domains", dept),
 						widget.NewFormItem("Product Managers", pms),
+						widget.NewFormItem("Save path", savepath),
 					),
 					widget.NewButton("Save", func() {
 						myApp.Preferences().SetString("Department", dept.Selected)
 						myApp.Preferences().SetString("ProductManagers", pms.Text)
+						myApp.Preferences().SetString("SavePath", savepath.Text)
 					})),
 			)),
 	)
@@ -264,8 +298,9 @@ func ListRelationsToSelect(
 			allFields.stringValues[x.AttributeName].SetText(x.StringValue)
 		case isSelect(x.AttributeName):
 			if x.AttributeName != "GU::Product Manager" && x.AttributeName != "GU::Managed outside of DS" {
+				azure.ValidChoices[x.AttributeName] = az.GetChoicesFor(x.AttributeId)
 				allFields.selectValues[x.AttributeName] = widget.NewSelect(
-					getMapStringKeys(az.GetChoicesFor(x.AttributeId)),
+					getMapStringKeys(azure.ValidChoices[x.AttributeName]),
 					func(bob string) {},
 				)
 			}
@@ -280,149 +315,12 @@ func ListRelationsToSelect(
 		knownKids[""] = append(knownKids[""], x.RelationshipId)
 		knownBits[x.RelationshipId] = x
 	}
-
-	relationshipList := widget.NewTree(
-		func(id widget.TreeNodeID) []widget.TreeNodeID {
-			y, x := knownKids[id]
-			if x {
-				return y
-			}
-			return []widget.TreeNodeID{}
-		},
-		func(id widget.TreeNodeID) bool {
-			_, here := knownKids[id]
-			return here
-		},
-		func(branch bool) fyne.CanvasObject {
-			return container.NewHBox(widget.NewCheck("Diag", func(value bool) {}))
-		},
-		func(id widget.TreeNodeID, branch bool, item fyne.CanvasObject) {
-			checkbox := &(item.(*fyne.Container).Objects[0])
-			(*checkbox).(*widget.Check).OnChanged = func(value bool) {
-				if value {
-					selectedRelations[knownBits[id].RelationshipId] = knownBits[id]
-					_, here := knownKids[knownBits[id].RelationshipId]
-					if !here {
-						go func() {
-							knownKids[knownBits[id].RelationshipId] = []widget.TreeNodeID{}
-							rels := append(az.FindRelations(knownBits[id].LeadObjectId), az.FindRelations(knownBits[id].MemberObjectId)...)
-							for _, x := range rels {
-								_, here2 := knownBits[x.RelationshipId]
-								if !here2 {
-									knownKids[knownBits[id].RelationshipId] = append(knownKids[knownBits[id].RelationshipId], x.RelationshipId)
-									knownBits[x.RelationshipId] = x
-								}
-							}
-						}()
-					}
-				} else {
-					delete(selectedRelations, knownBits[id].RelationshipId)
-				}
-			}
-			(*checkbox).(*widget.Check).Text = (fmt.Sprintf(
-				"%s %s %s",
-				knownBits[id].LeadObject.Name,
-				knownBits[id].RelationshipType.LeadToMemberDirection,
-				knownBits[id].MemberObject.Name,
-			))
-			_, x := selectedRelations[knownBits[id].RelationshipId]
-			(*checkbox).(*widget.Check).SetChecked(x)
-			(*checkbox).Refresh()
-		},
-	)
-	relationshipWindow := container.NewBorder(
-		widget.NewLabelWithStyle("Relationships", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewToolbar(
-			widget.NewToolbarAction(
-				theme.ContentAddIcon(),
-				func() {
-					fmt.Printf("Add Relationship")
-				},
-			),
-			widget.NewToolbarAction(
-				theme.ContentRemoveIcon(),
-				func() {
-					fmt.Printf("Remove Relationship(s)")
-				},
-			),
-			widget.NewToolbarAction(
-				theme.ColorPaletteIcon(),
-				func() {
-					filename := widget.NewEntry()
-					dialog.ShowForm(
-						"Save diagram",
-						"Save",
-						"Don't",
-						[]*widget.FormItem{widget.NewFormItem("Filename", filename)},
-						func(save bool) {
-							if !save {
-								return
-							}
-							fo, err := os.Create(filepath.Join(os.TempDir(), filepath.Base(filename.Text)))
-							fmt.Printf("Saved to %s\n", filepath.Join(os.TempDir(), filepath.Base(filename.Text)))
-							if err != nil {
-								panic(err)
-							}
-							// close fo on exit and check for its returned error
-							defer func() {
-								if err := fo.Close(); err != nil {
-									panic(err)
-								}
-							}()
-							fo.WriteString(PlantUMLStart)
-							alreadyDrawn := map[string]string{}
-							alreadyDrawn = map[string]string{
-								basics.ObjectId: nameToToken(&alreadyDrawn, basics.Name),
-							}
-							relationships := map[string]relationshipStruct{}
-							objects := map[string]objectStruct{}
-							addToObjectStruct(&objects, alreadyDrawn[basics.ObjectId], basics.Name, "PAC")
-							for _, x := range selectedRelations {
-								leftAlias := ""
-								rightAlias := ""
-								var y bool
-								if leftAlias, y = alreadyDrawn[x.LeadObjectId]; !y {
-									leftAlias = nameToToken(&alreadyDrawn, x.LeadObject.Name)
-									alreadyDrawn[x.LeadObjectId] = leftAlias
-									addToObjectStruct(&objects, alreadyDrawn[x.LeadObjectId], x.LeadObject.Name, x.LeadObject.Type.Name)
-								}
-								if rightAlias, y = alreadyDrawn[x.MemberObjectId]; !y {
-									rightAlias = nameToToken(&alreadyDrawn, x.MemberObject.Name)
-									alreadyDrawn[x.MemberObjectId] = rightAlias
-									addToObjectStruct(&objects, alreadyDrawn[x.MemberObjectId], x.MemberObject.Name, x.MemberObject.Type.Name)
-								}
-								addRelationship(
-									&relationships,
-									&objects,
-									leftAlias,
-									x.LeadObject,
-									rightAlias,
-									x.MemberObject,
-									x.RelationshipId,
-									x.RelationshipType.LeadToMemberDirection,
-								)
-							}
-							for _, x := range objects {
-								fo.WriteString(drawObject(x))
-							}
-							for _, x := range relationships {
-								fo.WriteString(
-									fmt.Sprintf(
-										"Rel(%s,%s,\"%s\")\n",
-										x.leftAlias,
-										x.rightAlias,
-										x.relationshipName,
-									))
-							}
-							fo.WriteString(PlantUMLEnd)
-						},
-						*thenWindow,
-					)
-				},
-			)),
-		nil,
-		container.NewGridWithColumns(1, widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel("")),
-		relationshipList)
+	relationshipWindow := createRelationshipWindow(
+		basics,
+		selectedRelations,
+		knownKids,
+		knownBits,
+		thenWindow)
 	display := container.NewBorder(
 		widget.NewToolbar(
 			widget.NewToolbarAction(
@@ -452,7 +350,8 @@ func ListRelationsToSelect(
 								dateValuesAsString[i] = x.Text
 							}
 							title := "Save Succesful"
-							_, message := az.SaveObjectFields(basics.ObjectId, stringValuesAsString, selectValuesAsString, dateValuesAsString)
+							_, message, id := az.SaveObjectFields(basics.ObjectId, stringValuesAsString, selectValuesAsString, dateValuesAsString)
+							basics.ObjectId = id
 							d.Hide()
 							d2 := dialog.NewInformation(title, message, *thenWindow)
 							d2.Show()
@@ -765,7 +664,6 @@ func addRelationship(
 ) {
 	objectsRef := (*objects)
 	if leftObject.Type.Name == "Location" {
-		fmt.Printf("%v\n", objectsRef[leftObject.ObjectId])
 		objectsRef[leftAlias].children[rightObject.ObjectId] = (*objects)[rightAlias]
 		delete(objectsRef, rightAlias)
 	} else if rightObject.Type.Name == "Location" {
@@ -778,6 +676,170 @@ func addRelationship(
 			relationshipName: connection,
 		}
 	}
+}
+
+func createRelationshipWindow(
+	basics azure.IServerObjectStruct,
+	selectedRelations map[string]azure.RelationStruct,
+	knownKids map[widget.TreeNodeID][]widget.TreeNodeID,
+	knownBits map[widget.TreeNodeID]azure.RelationStruct,
+	thenWindow *fyne.Window) *fyne.Container {
+	relationshipList := widget.NewTree(
+		func(id widget.TreeNodeID) []widget.TreeNodeID {
+			y, x := knownKids[id]
+			if x {
+				return y
+			}
+			return []widget.TreeNodeID{}
+		},
+		func(id widget.TreeNodeID) bool {
+			_, here := knownKids[id]
+			return here
+		},
+		func(branch bool) fyne.CanvasObject {
+			return container.NewHBox(widget.NewCheck("Diag", func(value bool) {}))
+		},
+		func(id widget.TreeNodeID, branch bool, item fyne.CanvasObject) {
+			checkbox := &(item.(*fyne.Container).Objects[0])
+			(*checkbox).(*widget.Check).OnChanged = func(value bool) {
+				if value {
+					selectedRelations[knownBits[id].RelationshipId] = knownBits[id]
+					_, here := knownKids[knownBits[id].RelationshipId]
+					if !here {
+						go func() {
+							knownKids[knownBits[id].RelationshipId] = []widget.TreeNodeID{}
+							rels := append(az.FindRelations(knownBits[id].LeadObjectId), az.FindRelations(knownBits[id].MemberObjectId)...)
+							for _, x := range rels {
+								_, here2 := knownBits[x.RelationshipId]
+								if !here2 {
+									knownKids[knownBits[id].RelationshipId] = append(knownKids[knownBits[id].RelationshipId], x.RelationshipId)
+									knownBits[x.RelationshipId] = x
+								}
+							}
+						}()
+					}
+				} else {
+					delete(selectedRelations, knownBits[id].RelationshipId)
+				}
+			}
+			(*checkbox).(*widget.Check).Text = (fmt.Sprintf(
+				"%s %s %s",
+				knownBits[id].LeadObject.Name,
+				knownBits[id].RelationshipType.LeadToMemberDirection,
+				knownBits[id].MemberObject.Name,
+			))
+			_, x := selectedRelations[knownBits[id].RelationshipId]
+			(*checkbox).(*widget.Check).SetChecked(x)
+			(*checkbox).Refresh()
+		},
+	)
+	return container.NewBorder(
+		widget.NewLabelWithStyle("Relationships", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewToolbar(
+			widget.NewToolbarAction(
+				theme.ContentAddIcon(),
+				func() {
+					fmt.Printf("Add Relationship")
+				},
+			),
+			widget.NewToolbarAction(
+				theme.ContentRemoveIcon(),
+				func() {
+					fmt.Printf("Remove Relationship(s)")
+				},
+			),
+			widget.NewToolbarAction(
+				theme.ColorPaletteIcon(),
+				func() {
+					filename := widget.NewEntry()
+					dialog.ShowForm(
+						"Save diagram",
+						"Save",
+						"Don't",
+						[]*widget.FormItem{widget.NewFormItem("Filename", filename)},
+						func(save bool) {
+							if !save {
+								return
+							}
+							savePath := myApp.Preferences().StringWithFallback("SavePath", "")
+							if savePath == "" {
+								var err error
+								savePath, err = os.UserHomeDir()
+								if err != nil {
+									savePath = os.TempDir()
+								}
+								myApp.Preferences().SetString("SavePath", savePath)
+							}
+							fileName := filepath.Join(savePath, filepath.Base(filename.Text))
+							fo, err := os.Create(fileName)
+							if err != nil {
+								panic(err)
+							}
+							// close fo on exit and check for its returned error
+							defer func() {
+								if err := fo.Close(); err != nil {
+									panic(err)
+								}
+							}()
+							fo.WriteString(PlantUMLStart)
+							alreadyDrawn := map[string]string{}
+							alreadyDrawn = map[string]string{
+								basics.ObjectId: nameToToken(&alreadyDrawn, basics.Name),
+							}
+							relationships := map[string]relationshipStruct{}
+							objects := map[string]objectStruct{}
+							addToObjectStruct(&objects, alreadyDrawn[basics.ObjectId], basics.Name, "PAC")
+							for _, x := range selectedRelations {
+								leftAlias := ""
+								rightAlias := ""
+								var y bool
+								if leftAlias, y = alreadyDrawn[x.LeadObjectId]; !y {
+									leftAlias = nameToToken(&alreadyDrawn, x.LeadObject.Name)
+									alreadyDrawn[x.LeadObjectId] = leftAlias
+									addToObjectStruct(&objects, alreadyDrawn[x.LeadObjectId], x.LeadObject.Name, x.LeadObject.Type.Name)
+								}
+								if rightAlias, y = alreadyDrawn[x.MemberObjectId]; !y {
+									rightAlias = nameToToken(&alreadyDrawn, x.MemberObject.Name)
+									alreadyDrawn[x.MemberObjectId] = rightAlias
+									addToObjectStruct(&objects, alreadyDrawn[x.MemberObjectId], x.MemberObject.Name, x.MemberObject.Type.Name)
+								}
+								addRelationship(
+									&relationships,
+									&objects,
+									leftAlias,
+									x.LeadObject,
+									rightAlias,
+									x.MemberObject,
+									x.RelationshipId,
+									x.RelationshipType.LeadToMemberDirection,
+								)
+							}
+							for _, x := range objects {
+								fo.WriteString(drawObject(x))
+							}
+							for _, x := range relationships {
+								fo.WriteString(
+									fmt.Sprintf(
+										"Rel(%s,%s,\"%s\")\n",
+										x.leftAlias,
+										x.rightAlias,
+										x.relationshipName,
+									))
+							}
+							fo.WriteString(PlantUMLEnd)
+							dialog.ShowInformation(
+								"Saved",
+								fmt.Sprintf("Saved the diagram to %s", fileName),
+								*thenWindow,
+							)
+						},
+						*thenWindow,
+					)
+				},
+			)),
+		nil,
+		container.NewGridWithColumns(1, widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel("")),
+		relationshipList)
 }
 
 var PlantUMLStart = "@startuml Solution Context\n!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons\n!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5\n!include DEVICONS/angular.puml\n!include DEVICONS/java.puml\n!include DEVICONS/msql_server.puml\n!include FONTAWESOME/users.puml\nSetDefaultLegendEntries(\"\")\nLAYOUT_WITH_LEGEND()\n"
@@ -847,11 +909,11 @@ func PtcFields() modelFields {
 			"Supplier":                         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"GU::Product Manager":         widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Data Classification":     widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Solution Classification": widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Object Visibility":       widget.NewSelect([]string{}, func(bob string) {}),
-			"Lifecycle Status":            widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Product Manager":                     widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
+			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
 		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
@@ -878,7 +940,7 @@ func PtcFields() modelFields {
 			2: {
 				title: "Meta",
 				fields: map[int]fieldsStruct{
-					0: {"Data classification", "select", "GU::Data Classification"},
+					0: {"Information Security classification", "select", "GU::Information Security Classification"},
 					1: {"Solution classification", "select", "GU::Solution Classification"},
 					2: {"Visible in applist", "select", "GU::Object Visibility"},
 					3: {"Review", "string", "GU::Review Bodies"},
@@ -891,6 +953,7 @@ func PtcFields() modelFields {
 					1: {"Live", "date", "Internal: Live date"},
 					2: {"Phasing out", "date", "Internal: Phase Out From"},
 					3: {"Retirement", "date", "Internal: Retirement date"},
+					4: {"Lifecycle Status", "select", "Lifecycle Status"},
 				},
 			},
 		},
@@ -913,10 +976,10 @@ func PacFields() modelFields {
 				[]string{"True", "False"},
 				func(bob string) {},
 			),
-			"GU::Data Classification":     widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Solution Classification": widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Object Visibility":       widget.NewSelect([]string{}, func(bob string) {}),
-			"Lifecycle Status":            widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
+			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
 		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
@@ -944,7 +1007,7 @@ func PacFields() modelFields {
 			2: {
 				title: "Meta",
 				fields: map[int]fieldsStruct{
-					1: {"Data classification", "select", "GU::Data Classification"},
+					1: {"Information security classification", "select", "GU::Information Security Classification"},
 					2: {"Solution classification", "select", "GU::Solution Classification"},
 					3: {"Visible in applist", "select", "GU::Object Visibility"},
 					4: {"Review", "string", "GU::Review Bodies"},
@@ -957,6 +1020,7 @@ func PacFields() modelFields {
 					1: {"Live", "date", "Internal: Live date"},
 					2: {"Phasing out", "date", "Internal: Phase Out From"},
 					3: {"Retirement", "date", "Internal: Retirement date"},
+					4: {"Lifecycle Status", "select", "Lifecycle Status"},
 				},
 			},
 		},
