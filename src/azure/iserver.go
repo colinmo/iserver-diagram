@@ -82,6 +82,8 @@ type FindStruct struct {
 
 var ValidChoices = map[string]map[string]string{}
 
+var BaselineArchitectureModel = "0bb71446-f140-ea11-a601-28187852aafd"
+
 type ValuesValue struct {
 	AttributeConfigurationChoiceId string `json:"AttributeConfigurationChoiceId,omitempty"`
 	Value                          string `json:"Value,omitempty"`
@@ -96,6 +98,8 @@ type AttributeValue struct {
 }
 type SaveObject struct {
 	Name            string      `json:"Name"`
+	ObjectTypeId    string      `json:"ObjectTypeId"`
+	ModelId         string      `json:"ModelId"`
 	AttributeValues []SaveValue `json:"AttributeValues"`
 }
 type SaveValue struct {
@@ -200,9 +204,32 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	return toReturn
 }
 
-func (a *AzureAuth) SaveObjectFields(id string, stringValues map[string]string, selectValues map[string]string, dateValues map[string]string) (bool, string, string) {
+func (a *AzureAuth) SaveObjectFields(
+	id string,
+	objectName string,
+	stringValues map[string]string,
+	selectValues map[string]string,
+	dateValues map[string]string,
+) (bool, string, string) {
 	saveValues := SaveObject{}
 	saveValues.Name = stringValues["Title"]
+	if id == "" {
+		saveValues.ModelId = BaselineArchitectureModel
+		switch objectName {
+		case "Physical Application Component":
+			saveValues.ObjectTypeId = "6fb624e4-b642-ea11-a601-28187852aafd"
+		case "Physical Technology Component":
+			saveValues.ObjectTypeId = "140714ec-b642-ea11-a601-28187852aafd"
+		case "Logical Application Component":
+			saveValues.ObjectTypeId = "7cb624e4-b642-ea11-a601-28187852aafd"
+		}
+		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
+			AttributeName:     "Name",
+			AttributeCategory: "Text",
+			TextValue:         stringValues["Title"],
+		})
+
+	}
 	delete(stringValues, "Title")
 	for i, e := range stringValues {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
@@ -467,4 +494,53 @@ func (a *AzureAuth) GetChoicesFor(me string) map[string]string {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return Choices
+}
+
+func (a *AzureAuth) GetChoicesForName(me string) map[string]string {
+	var oneCall struct {
+		Value []struct {
+			Choices []struct {
+				Value                          string `json:"Value"`
+				AttributeConfigurationChoiceId string `json:"AttributeConfigurationChoiceId"`
+			} `json:"Choices"`
+		} `json:"value"`
+		NextLink string `json:"@odata.nextLink"`
+	}
+	// Lifecycle
+	Choices := map[string]string{}
+	path := "/odata/Attributes"
+	query := strings.ReplaceAll(fmt.Sprintf("%%24filter=Name eq '%s'", me), " ", "%20")
+	for {
+		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			log.Fatalf("failed to call endpoint %v\n", err)
+		}
+		defer mep.Close()
+		bytemep, err := io.ReadAll(mep)
+		if err != nil {
+			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		err = json.Unmarshal(bytemep, &oneCall)
+		if err != nil {
+			log.Fatalf("failed to parse json %v\n", err)
+		}
+		if len(oneCall.Value) > 0 && len(oneCall.Value[0].Choices) > 0 {
+			for _, x := range oneCall.Value[0].Choices {
+				Choices[x.Value] = x.AttributeConfigurationChoiceId
+			}
+		}
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			log.Printf("Failed to parse next")
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+	return Choices
+
 }

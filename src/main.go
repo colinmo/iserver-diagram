@@ -117,16 +117,7 @@ func main() {
 									addWindowFor(windowTitle, 650, 850)
 									lookupWindow = windows[windowTitle]
 								}
-								def := azure.IServerObjectStruct{
-									Name:     "bob",
-									ObjectId: "",
-									AttributeValues: []azure.AttributeValue{
-										{StringValue: "", AttributeName: "GU::Product Manager"},
-									},
-									ObjectType: struct {
-										Name string `json:"Name"`
-									}{Name: "Physical Application Component"},
-								}
+								def := newPACTemplate(PacFields())
 								UpdateMessage("Loading")
 								lookupWindow.Show()
 								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
@@ -193,6 +184,29 @@ func main() {
 	mainWindow.Show()
 	myApp.Run()
 	tidyUp()
+}
+
+func newPACTemplate(template modelFields) azure.IServerObjectStruct {
+	newObject := azure.IServerObjectStruct{
+		Name:     "",
+		ObjectId: "",
+		AttributeValues: []azure.AttributeValue{
+			{StringValue: "", AttributeName: "GU::Product Manager"},
+		},
+		ObjectType: struct {
+			Name string `json:"Name"`
+		}{Name: "Physical Application Component"},
+	}
+	for name := range template.selectValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
+	return newObject
 }
 func tidyUp() {
 	fmt.Println("Exited")
@@ -298,7 +312,9 @@ func ListRelationsToSelect(
 			allFields.stringValues[x.AttributeName].SetText(x.StringValue)
 		case isSelect(x.AttributeName):
 			if x.AttributeName != "GU::Product Manager" && x.AttributeName != "GU::Managed outside of DS" {
-				azure.ValidChoices[x.AttributeName] = az.GetChoicesFor(x.AttributeId)
+				if len(x.AttributeId) > 0 {
+					azure.ValidChoices[x.AttributeName] = az.GetChoicesFor(x.AttributeId)
+				}
 				allFields.selectValues[x.AttributeName] = widget.NewSelect(
 					getMapStringKeys(azure.ValidChoices[x.AttributeName]),
 					func(bob string) {},
@@ -350,7 +366,13 @@ func ListRelationsToSelect(
 								dateValuesAsString[i] = x.Text
 							}
 							title := "Save Succesful"
-							_, message, id := az.SaveObjectFields(basics.ObjectId, stringValuesAsString, selectValuesAsString, dateValuesAsString)
+							_, message, id := az.SaveObjectFields(
+								basics.ObjectId,
+								basics.ObjectType.Name,
+								stringValuesAsString,
+								selectValuesAsString,
+								dateValuesAsString,
+							)
 							basics.ObjectId = id
 							d.Hide()
 							d2 := dialog.NewInformation(title, message, *thenWindow)
