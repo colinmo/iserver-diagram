@@ -189,7 +189,7 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	toReturn := IServerObjectStruct{}
 
 	path := fmt.Sprintf("/odata/Objects(%s)", id)
-	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','GU::Product%20Manager','Owner','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier'))`
+	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier'))`
 	mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 	if err != nil {
 		log.Fatalf("failed to call endpoint %v\n", err)
@@ -239,11 +239,11 @@ func (a *AzureAuth) SaveObjectFields(
 		})
 	}
 	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
-		AttributeName:     "GU::Product Manager",
+		AttributeName:     "Owner",
 		AttributeCategory: "Text",
-		TextValue:         selectValues["GU::Product Manager"],
+		TextValue:         selectValues["Owner"],
 	})
-	delete(selectValues, "GU::Product Manager")
+	delete(selectValues, "Owner")
 	_, y := selectValues["GU::Managed outside of DS"]
 	if y {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
@@ -368,7 +368,7 @@ func (a *AzureAuth) GetProductManagersThen(department string, putInto laterStrin
 
 	path := "/odata/Objects"
 	query := fmt.Sprintf(
-		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('GU::Product Manager'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Logical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:indexof(b/Value,'%s') gt -1)) and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/all(b:indexof(b/Value,'Retired') eq -1 and indexof(b/Value,'Proposed') eq -1))`,
+		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Owner'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Logical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:indexof(b/Value,'%s') gt -1)) and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/all(b:indexof(b/Value,'Retired') eq -1 and indexof(b/Value,'Proposed') eq -1))`,
 		department[1:6],
 	)
 	query = strings.ReplaceAll(query, " ", "%20")
@@ -414,7 +414,7 @@ func (a *AzureAuth) GetDomainThen(department string, putInto laterDomainOwned, t
 
 	path := "/odata/Objects"
 	query := fmt.Sprintf(
-		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('GU::Product Manager'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:b/Value eq '%s')) and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/all(b:indexof(b/Value,'Retired') eq -1 and indexof(b/Value,'Proposed') eq -1))`,
+		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName eq 'Owner')&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:b/Value eq '%s')) and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/all(b:indexof(b/Value,'Retired') eq -1 and indexof(b/Value,'Proposed') eq -1))`,
 		strings.ReplaceAll(department, "&", "%26"),
 	)
 	query = strings.ReplaceAll(query, " ", "%20")
@@ -433,6 +433,9 @@ func (a *AzureAuth) GetDomainThen(department string, putInto laterDomainOwned, t
 		}
 		for _, x := range oneCall.Value {
 			dept := x.AttributeValues[0].StringValue
+			if len(dept) == 0 {
+				dept = "???"
+			}
 			x.AttributeValues = []AttributeValue{}
 			toReturn[dept] = append(
 				toReturn[dept],
@@ -450,7 +453,6 @@ func (a *AzureAuth) GetDomainThen(department string, putInto laterDomainOwned, t
 		query = bits.RawQuery
 		time.Sleep(100 * time.Millisecond)
 	}
-
 	putInto(toReturn, thenWindow)
 }
 

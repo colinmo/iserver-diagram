@@ -191,7 +191,7 @@ func newPACTemplate(template modelFields) azure.IServerObjectStruct {
 		Name:     "",
 		ObjectId: "",
 		AttributeValues: []azure.AttributeValue{
-			{StringValue: "", AttributeName: "GU::Product Manager"},
+			{StringValue: "", AttributeName: "Owner"},
 		},
 		ObjectType: struct {
 			Name string `json:"Name"`
@@ -297,7 +297,7 @@ func ListRelationsToSelect(
 		allFields = PtcFields()
 	}
 	allFields.stringValues["Description"].Wrapping = fyne.TextWrapWord
-	json.Unmarshal([]byte(myApp.Preferences().StringWithFallback("ProductManagers", "[]")), &allFields.selectValues["GU::Product Manager"].Options)
+	json.Unmarshal([]byte(myApp.Preferences().StringWithFallback("ProductManagers", "[]")), &allFields.selectValues["Owner"].Options)
 	allFields.stringValues["Title"].SetText(basics.Name)
 	selectedRelations := map[string]azure.RelationStruct{}
 	for i := range allFields.dateValues {
@@ -311,12 +311,14 @@ func ListRelationsToSelect(
 		case isString(x.AttributeName):
 			allFields.stringValues[x.AttributeName].SetText(x.StringValue)
 		case isSelect(x.AttributeName):
-			if x.AttributeName != "GU::Product Manager" && x.AttributeName != "GU::Managed outside of DS" {
+			if x.AttributeName != "Owner" && x.AttributeName != "GU::Managed outside of DS" {
 				if len(x.AttributeId) > 0 {
 					azure.ValidChoices[x.AttributeName] = az.GetChoicesFor(x.AttributeId)
 				}
+				keys := getMapStringKeys(azure.ValidChoices[x.AttributeName])
+				sort.Strings(keys)
 				allFields.selectValues[x.AttributeName] = widget.NewSelect(
-					getMapStringKeys(azure.ValidChoices[x.AttributeName]),
+					keys,
 					func(bob string) {},
 				)
 			}
@@ -925,13 +927,12 @@ func PtcFields() modelFields {
 		stringValues: map[string]*widget.Entry{
 			"Title":                            widget.NewEntry(),
 			"Description":                      widget.NewMultiLineEntry(),
-			"Owner":                            widget.NewEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"GU::Product Manager":                     widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
@@ -953,8 +954,7 @@ func PtcFields() modelFields {
 			1: {
 				title: "Roles",
 				fields: map[int]fieldsStruct{
-					0: {"Product Manager", "select", "GU::Product Manager"},
-					1: {"Owner", "string", "Owner"},
+					1: {"Owner (Product Manager)", "select", "Owner"},
 					2: {"Custodian", "string", "GU::Information System Custodian"},
 					3: {"Supplier", "string", "Supplier"},
 				},
@@ -987,13 +987,13 @@ func PacFields() modelFields {
 		stringValues: map[string]*widget.Entry{
 			"Title":                            widget.NewEntry(),
 			"Description":                      widget.NewMultiLineEntry(),
-			"Owner":                            widget.NewEntry(),
+			"Owner (Legacy)":                   widget.NewEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"GU::Product Manager": widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Managed outside of DS": widget.NewSelect(
 				[]string{"True", "False"},
 				func(bob string) {},
@@ -1020,8 +1020,8 @@ func PacFields() modelFields {
 			1: {
 				title: "Roles",
 				fields: map[int]fieldsStruct{
-					0: {"Product Manager", "select", "GU::Product Manager"},
-					1: {"Owner", "string", "Owner"},
+					0: {"Owner (Product Manager)", "select", "Owner"},
+					1: {"Owner (Legacy)", "string", "Owner (Legacy)"},
 					2: {"Custodian", "string", "GU::Information System Custodian"},
 					3: {"Supplier", "string", "Supplier"},
 				},

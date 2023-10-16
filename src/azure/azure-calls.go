@@ -310,7 +310,7 @@ func (a *AzureAuth) GetObjectsForTypeAndArea(objectType string, owners []string)
 			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueText/any(a:`+
 				`a/AttributeName eq '%s' and a/Value in ('%s')`+
 				`)`,
-			"GU::Product Manager",
+			"Owner",
 			owner,
 		)
 	case "PTC":
@@ -319,7 +319,7 @@ func (a *AzureAuth) GetObjectsForTypeAndArea(objectType string, owners []string)
 			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueText/any(a:`+
 				`a/AttributeName eq '%s' and a/Value in ('%s')`+
 				`)`,
-			"GU::Product Manager",
+			"Owner",
 			owner,
 		)
 	case "LAC":
@@ -394,7 +394,7 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 		strings.Replace(department, "&", "%26", -1),
 	)
 	path := "/odata/Objects"
-	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Business Owner','GU::Review Bodies','GU::Product Manager'))&`+
+	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Owner','GU::Review Bodies','Owner (Legacy)'))&`+
 		`$filter=Model/Name eq '%s'`+
 		` and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component')`+
 		`%s`,
@@ -437,7 +437,7 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 
 func unknownProductManager(needle ObjectStruct, haystack []string) bool {
 	for _, a := range needle.Attributevalues {
-		if a.AttributeName == "GU::Product Manager" {
+		if a.AttributeName == "Owner" {
 			for _, v := range haystack {
 				if a.StringValue == v {
 					//fmt.Printf("Do not add [%s] vs [%s]\n", a.StringValue, v)
