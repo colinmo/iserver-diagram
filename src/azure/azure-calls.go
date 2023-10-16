@@ -333,7 +333,7 @@ func (a *AzureAuth) GetObjectsForTypeAndArea(objectType string, owners []string)
 		)
 	}
 	path := "/odata/Objects"
-	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Business Fit','Technical Fit','Lifecycle Status','IServerID','Internal: In Development From','Internal: Live date','Internal: Phase Out From','Internal: Retirement date'))&`+
+	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Business Fit','Technical Fit','Lifecycle Status','IServerID','Internal: In Development From','Internal: Live date','Internal: Phase Out From','Internal: Retirement date','Internal Recommendation','Operational Importance'))&`+
 		`$filter=Model/Name eq '%s'`+
 		` and ObjectType/Name eq '%s'`+
 		`%s`,
@@ -394,7 +394,7 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 		strings.Replace(department, "&", "%26", -1),
 	)
 	path := "/odata/Objects"
-	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Owner','GU::Review Bodies','Owner (Legacy)'))&`+
+	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Owner','GU::Review Bodies','Owner (Legacy)','Internal Recommendation','Operational Importance'))&`+
 		`$filter=Model/Name eq '%s'`+
 		` and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component')`+
 		`%s`,

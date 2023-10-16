@@ -312,9 +312,7 @@ func ListRelationsToSelect(
 			allFields.stringValues[x.AttributeName].SetText(x.StringValue)
 		case isSelect(x.AttributeName):
 			if x.AttributeName != "Owner" && x.AttributeName != "GU::Managed outside of DS" {
-				if len(x.AttributeId) > 0 {
-					azure.ValidChoices[x.AttributeName] = az.GetChoicesFor(x.AttributeId)
-				}
+				azure.ValidChoices[x.AttributeName] = az.GetChoicesForName(x.AttributeName)
 				keys := getMapStringKeys(azure.ValidChoices[x.AttributeName])
 				sort.Strings(keys)
 				allFields.selectValues[x.AttributeName] = widget.NewSelect(
@@ -937,6 +935,8 @@ func PtcFields() modelFields {
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
 			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
+			"Internal Recommendation":                 widget.NewSelect([]string{}, func(bob string) {}),
+			"Operational Importance":                  widget.NewSelect([]string{}, func(bob string) {}),
 		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
@@ -966,6 +966,8 @@ func PtcFields() modelFields {
 					1: {"Solution classification", "select", "GU::Solution Classification"},
 					2: {"Visible in applist", "select", "GU::Object Visibility"},
 					3: {"Review", "string", "GU::Review Bodies"},
+					4: {"Internal recommendation", "select", "Internal Recommendation"},
+					5: {"Operational importance", "select", "Operational Importance"},
 				},
 			},
 			3: {
@@ -1002,6 +1004,8 @@ func PacFields() modelFields {
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
 			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
+			"Internal Recommendation":                 widget.NewSelect([]string{}, func(bob string) {}),
+			"Operational Importance":                  widget.NewSelect([]string{}, func(bob string) {}),
 		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
@@ -1029,10 +1033,12 @@ func PacFields() modelFields {
 			2: {
 				title: "Meta",
 				fields: map[int]fieldsStruct{
-					1: {"Information security classification", "select", "GU::Information Security Classification"},
-					2: {"Solution classification", "select", "GU::Solution Classification"},
-					3: {"Visible in applist", "select", "GU::Object Visibility"},
-					4: {"Review", "string", "GU::Review Bodies"},
+					0: {"Information security classification", "select", "GU::Information Security Classification"},
+					1: {"Solution classification", "select", "GU::Solution Classification"},
+					2: {"Visible in applist", "select", "GU::Object Visibility"},
+					3: {"Review", "string", "GU::Review Bodies"},
+					4: {"Internal recommendation", "select", "Internal Recommendation"},
+					5: {"Operational importance", "select", "Operational Importance"},
 				},
 			},
 			3: {
