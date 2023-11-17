@@ -189,7 +189,7 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	toReturn := IServerObjectStruct{}
 
 	path := fmt.Sprintf("/odata/Objects(%s)", id)
-	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier','Internal%20Recommendation','Operational%20Importance'))`
+	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier','Internal%20Recommendation','Operational%20Importance','GU::Domain'))`
 	mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 	if err != nil {
 		log.Fatalf("failed to call endpoint %v\n", err)

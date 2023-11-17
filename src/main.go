@@ -51,6 +51,7 @@ func main() {
 	myApp = app.NewWithID("com.vonexplaino.voniserverdiagram")
 	status = binding.NewString()
 	messages = binding.NewString()
+	dept := widget.NewSelect([]string{}, func(change string) {})
 	if myApp.Preferences().StringWithFallback("Department", "nope") == "nope" {
 		UpdateStatus("Offline")
 		UpdateMessage("Update settings")
@@ -62,6 +63,11 @@ func main() {
 			az.StartAzure()
 			UpdateStatus("Live")
 			UpdateMessage("Ready")
+			keys := getMapStringKeys(az.GetChoicesForName("GU::Domain"))
+			sort.Strings(keys)
+			dept.Options = keys
+			dept.SetSelected(myApp.Preferences().StringWithFallback("Department", "Unknown"))
+			dept.Refresh()
 		}()
 	}
 	mainWindow := myApp.NewWindow("Loading")
@@ -75,12 +81,6 @@ func main() {
 	searchEntry := binding.NewString()
 	centreContent = container.NewMax()
 	// Settings
-	dept := widget.NewSelect([]string{
-		"Research, Specialised & Data Foundations",
-		"University Operations",
-		"Teaching & Learning",
-	}, func(change string) {})
-	dept.SetSelected(myApp.Preferences().StringWithFallback("Department", "nope"))
 	pms := widget.NewMultiLineEntry()
 	pms.SetText(myApp.Preferences().StringWithFallback("ProductManagers", "[]"))
 	savepath := widget.NewEntry()
@@ -930,7 +930,8 @@ func PtcFields() modelFields {
 			"Supplier":                         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"Owner": widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner":      widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Domain": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
@@ -949,6 +950,7 @@ func PtcFields() modelFields {
 				fields: map[int]fieldsStruct{
 					0: {"Name", "string", "Title"},
 					1: {"Description", "string", "Description"},
+					2: {"Domain", "select", "GU::Domain"},
 				},
 			},
 			1: {
@@ -995,7 +997,8 @@ func PacFields() modelFields {
 			"Supplier":                         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"Owner": widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner":      widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Domain": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Managed outside of DS": widget.NewSelect(
 				[]string{"True", "False"},
 				func(bob string) {},
@@ -1019,6 +1022,7 @@ func PacFields() modelFields {
 				fields: map[int]fieldsStruct{
 					0: {"Name", "string", "Title"},
 					1: {"Description", "string", "Description"},
+					2: {"Domain", "select", "GU::Domain"},
 				},
 			},
 			1: {
