@@ -179,8 +179,7 @@ func (a *AzureAuth) CallRestEndpoint(method string, path string, payload []byte,
 		return resp.Body, err
 	}
 	if err == nil {
-		bytemep, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("iserver query failure, received %d\n%s\n%s", resp.StatusCode, newpath, bytemep)
+		return resp.Body, fmt.Errorf("iserver query failure, received %d\n%s", resp.StatusCode, newpath)
 	}
 	return nil, err
 }

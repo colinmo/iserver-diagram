@@ -276,18 +276,12 @@ func (a *AzureAuth) SaveObjectFields(
 			// Create
 			path := "/odata/Objects"
 			query := ``
-			mep, err = a.CallRestEndpoint("POST", path, x, query)
-			if err != nil {
-				log.Fatalf("failed to call endpoint %v\n", err)
-			}
+			mep, _ = a.CallRestEndpoint("POST", path, x, query)
 		} else {
 			// Update
 			path := fmt.Sprintf("/odata/Objects(%s)", id)
 			query := ``
-			mep, err = a.CallRestEndpoint("PATCH", path, x, query)
-			if err != nil {
-				log.Fatalf("failed to call endpoint %v\n", err)
-			}
+			mep, _ = a.CallRestEndpoint("PATCH", path, x, query)
 		}
 		defer mep.Close()
 		toReturn := struct {
@@ -302,9 +296,15 @@ func (a *AzureAuth) SaveObjectFields(
 			} `json:"SuccessMessage"`
 		}{}
 		bytemep, err := io.ReadAll(mep)
+		fmt.Printf("%s", bytemep)
 		json.Unmarshal(bytemep, &toReturn)
 		if err != nil {
 			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		if len(toReturn.Messages) == 0 {
+			toReturn.Messages = append(toReturn.Messages, struct {
+				Message string `json:"message"`
+			}{Message: ""})
 		}
 		return toReturn.Success, toReturn.Messages[0].Message, toReturn.SuccessMessage.MessageDefinition.ObjectId
 	}
