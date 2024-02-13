@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -195,6 +196,7 @@ func newPACTemplate(template modelFields) azure.IServerObjectStruct {
 		},
 		ObjectType: struct {
 			Name string `json:"Name"`
+			Id   string `json:"ObjectTypeId"`
 		}{Name: "Physical Application Component"},
 	}
 	for name := range template.selectValues {
@@ -761,12 +763,205 @@ func createRelationshipWindow(
 			widget.NewToolbarAction(
 				theme.ContentAddIcon(),
 				func() {
+					addRelWindow := addWindowFor("Add Relationship", 500, 250)
+					objectType := widget.NewSelectEntry([]string{
+						"Capability",
+						"Actor",
+						"Constraint",
+						"Data Entity",
+						"Application Service",
+						"Location",
+						"Physical Data Component",
+						"Technology Service",
+						"Principle",
+						"Process",
+						"Product",
+						"Requirement",
+						"Role",
+						"Risk",
+						"Physical Technology Group",
+						"Business Service",
+						"Physical Application Component",
+						"Logical Application Component",
+						"Logical Data Component",
+						"Interface",
+						"Organization Unit",
+						"Logical Technology Component",
+						"Physical Technology Component",
+					})
+					objectTypesList := map[string]string{
+						"Capability":                     "265f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Actor":                          "445f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Constraint":                     "535f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Data Entity":                    "625f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Application Service":            "bc5f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Location":                       "cb5f5bb2-2eef-e811-9f2b-00155d26bcf8",
+						"Physical Data Component":        "37395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Technology Service":             "52395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Principle":                      "70395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Process":                        "7f395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Product":                        "8e395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Requirement":                    "9d395db8-2eef-e811-9f2b-00155d26bcf8",
+						"Role":                           "243a5db8-2eef-e811-9f2b-00155d26bcf8",
+						"Risk":                           "b65f6dbe-2eef-e811-9f2b-00155d26bcf8",
+						"Physical Technology Group":      "5171e716-436d-ee11-9942-00224895c2e5",
+						"Business Service":               "73d7af8c-5e52-ea11-a94c-28187852a561",
+						"Physical Application Component": "6fb624e4-b642-ea11-a601-28187852aafd",
+						"Logical Application Component":  "7cb624e4-b642-ea11-a601-28187852aafd",
+						"Logical Data Component":         "96b624e4-b642-ea11-a601-28187852aafd",
+						"Interface":                      "a3b624e4-b642-ea11-a601-28187852aafd",
+						"Organization Unit":              "b0b624e4-b642-ea11-a601-28187852aafd",
+						"Logical Technology Component":   "070714ec-b642-ea11-a601-28187852aafd",
+						"Physical Technology Component":  "140714ec-b642-ea11-a601-28187852aafd",
+					}
+					relationshipSelect := widget.NewSelectEntry([]string{})
+					relationshipTypesList := map[string]struct {
+						id               string
+						typepair         string
+						leadobjecttypeid string
+					}{}
+					objectSelect := widget.NewSelectEntry([]string{})
+					objectSelectList := map[string]string{}
+					addRelWindow.SetContent(
+						container.NewBorder(
+							nil,
+							widget.NewToolbar(
+								widget.NewToolbarAction(
+									theme.DocumentSaveIcon(),
+									func() {
+										leadObject := basics.ObjectId
+										memberObject := objectSelectList[objectSelect.Text]
+										if basics.ObjectType.Id != relationshipTypesList[relationshipSelect.Text].leadobjecttypeid {
+											leadObject = objectSelectList[objectSelect.Text]
+											memberObject = basics.ObjectId
+
+										}
+										path := "/odata/Relationships"
+										query := ``
+										body := fmt.Sprintf(
+											`{"RelationshipTypeId":"%s",
+											"ModelId":"%s",
+											"RelationshipTypePairId":"%s",
+											"LeadModelItemId":"%s",
+											"MemberModelItemId":"%s"}`,
+											relationshipTypesList[relationshipSelect.Text].id,
+											azure.BaselineArchitectureModel,
+											relationshipTypesList[relationshipSelect.Text].typepair,
+											leadObject,
+											memberObject,
+										)
+										mep, _ := az.CallRestEndpoint(
+											"POST",
+											path,
+											[]byte(body),
+											query)
+										bytemep, err := io.ReadAll(mep)
+										if err != nil {
+											log.Fatalf("failed to read io.Reader %v\n", err)
+										}
+										fmt.Printf("%s\n\n", body)
+										fmt.Printf("%s\n\n%v", string(bytemep), err)
+										addRelWindow.Close()
+									},
+								),
+								widget.NewToolbarAction(
+									theme.CancelIcon(),
+									func() {
+										addRelWindow.Close()
+									},
+								),
+							),
+							nil,
+							nil,
+							container.New(
+								layout.NewFormLayout(),
+								widget.NewLabel("Object type"),
+								container.NewBorder(
+									nil,
+									nil,
+									nil,
+									widget.NewButtonWithIcon(
+										"",
+										theme.MailComposeIcon(),
+										func() {
+											mike := az.GetRelationTypesForObjectType(
+												basics.ObjectType.Id,
+												objectTypesList[objectType.Text],
+											)
+											selects := []string{}
+											for id, obj := range mike {
+												relationshipTypesList[obj.Name] = struct {
+													id               string
+													typepair         string
+													leadobjecttypeid string
+												}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].LeadObjectTypeId}
+												selects = append(selects, obj.Name)
+											}
+											relationshipSelect.SetOptions(selects)
+										},
+									),
+									objectType,
+								),
+								widget.NewLabel("Relationship"),
+								relationshipSelect,
+
+								widget.NewLabel("With object"),
+								container.NewBorder(
+									nil,
+									nil,
+									nil,
+
+									widget.NewButtonWithIcon(
+										"",
+										theme.MailComposeIcon(),
+										func() {
+											az.FindMeInTypeThen(
+												objectSelect.Text,
+												objectTypesList[objectType.Text],
+												func(finds []azure.FindStruct) {
+													returns := []string{}
+													objectSelectList = map[string]string{}
+													for _, x := range finds {
+														returns = append(returns, x.Name)
+														objectSelectList[x.Name] = x.ObjectId
+													}
+													objectSelect.SetOptions(returns)
+												})
+											mike := az.GetRelationTypesForObjectType(
+												basics.ObjectType.Id,
+												objectTypesList[objectType.Text],
+											)
+											selects := []string{}
+											for id, obj := range mike {
+												relationshipTypesList[obj.Name] = struct {
+													id               string
+													typepair         string
+													leadobjecttypeid string
+												}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].RelationshipTypePairId}
+												selects = append(selects, obj.Name)
+											}
+											relationshipSelect.SetOptions(selects)
+										},
+									),
+									objectSelect,
+								),
+							),
+						),
+					)
+					addRelWindow.Show()
+					// Pop up window
+					// Get the valid type relations
+					// Fill the prompt for relationship type
+					// Search for an object of the type
+					// Save relationship
 					fmt.Printf("Add Relationship")
 				},
 			),
 			widget.NewToolbarAction(
 				theme.ContentRemoveIcon(),
 				func() {
+					// Prompt for confirmation
+					// If yes, delete
 					fmt.Printf("Remove Relationship(s)")
 				},
 			),

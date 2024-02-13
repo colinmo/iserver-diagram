@@ -117,6 +117,7 @@ type IServerObjectStruct struct {
 	AttributeValues []AttributeValue `json:"AttributeValues"`
 	ObjectType      struct {
 		Name string `json:"Name"`
+		Id   string `json:"ObjectTypeId"`
 	} `json:"ObjectType"`
 }
 
@@ -189,7 +190,7 @@ func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
 	toReturn := IServerObjectStruct{}
 
 	path := fmt.Sprintf("/odata/Objects(%s)", id)
-	query := `$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier','Internal%20Recommendation','Operational%20Importance','GU::Domain'))`
+	query := `$expand=ObjectType($select=Name,ObjectTypeId),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier','Internal%20Recommendation','Operational%20Importance','GU::Domain'))`
 	mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 	if err != nil {
 		log.Fatalf("failed to call endpoint %v\n", err)
@@ -545,4 +546,56 @@ func (a *AzureAuth) GetChoicesForName(me string) map[string]string {
 	}
 	return Choices
 
+}
+
+// Simple find over iServer components, looking for the specified string
+// Focuses on PAC and LAC
+func (a *AzureAuth) FindMeInTypeThen(
+	lookFor string,
+	objectType string,
+	putInto func([]FindStruct)) {
+
+	toReturn := []FindStruct{}
+
+	type objects struct {
+		Value    []FindStruct `json:"value"`
+		NextLink string       `json:"@odata.nextLink"`
+	}
+
+	path := "/odata/Objects"
+	query := strings.ReplaceAll(
+		fmt.Sprintf(
+			`$expand=AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('ObjectId','Name','ObjectType'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/ObjectTypeId eq %s and indexOf(tolower(Name),'%s') gt -1`,
+			objectType,
+			strings.ToLower(lookFor)),
+		" ",
+		"%20")
+	for {
+		var oneCall objects
+		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			log.Fatalf("failed to call endpoint %v\n", err)
+		}
+		defer mep.Close()
+		bytemep, err := io.ReadAll(mep)
+		json.Unmarshal(bytemep, &oneCall)
+
+		if err != nil {
+			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		toReturn = append(toReturn, oneCall.Value...)
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			log.Printf("Failed to parse next")
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	putInto(toReturn)
 }
