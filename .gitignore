@@ -11,3 +11,4 @@ bak
 *conflicted*
 src/main.go.bak
 .gitignore
+bin/*
