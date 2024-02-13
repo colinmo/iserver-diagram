@@ -12,3 +12,4 @@ bak
 src/main.go.bak
 .gitignore
 bin/*
+src/*.app
