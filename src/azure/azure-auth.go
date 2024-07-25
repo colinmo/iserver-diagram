@@ -157,7 +157,6 @@ func (a *AzureAuth) CallRestEndpoint(method string, path string, payload []byte,
 		if len(a.AccessToken) > 0 {
 			break
 		}
-		fmt.Printf(".")
 	}
 	if a.ExpiresAt.Before(time.Now()) {
 		fmt.Printf("Refresh")

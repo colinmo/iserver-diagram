@@ -80,7 +80,7 @@ func main() {
 		widget.NewLabelWithData(messages),
 	)
 	searchEntry := binding.NewString()
-	centreContent = container.NewMax()
+	centreContent = container.NewStack()
 	// Settings
 	pms := widget.NewMultiLineEntry()
 	pms.SetText(myApp.Preferences().StringWithFallback("ProductManagers", "[]"))
@@ -153,6 +153,11 @@ func main() {
 					thewindow.Show()
 					az.GetDomainThen(myApp.Preferences().StringWithFallback("Department", ""), ShowDomainTree, thewindow)
 					UpdateMessage("Ready")
+				}),
+				widget.NewButton("Excel Audit", func() {
+					UpdateMessage("Running")
+					az.CreateProductManagerOverviewReport(myApp.Preferences().StringWithFallback("Department", "nope"))
+					UpdateMessage("Complete")
 				}),
 			)),
 		container.NewTabItem(
@@ -392,51 +397,51 @@ func ListRelationsToSelect(
 	(*thenWindow).SetContent(makeLookupWindow(display))
 }
 
-func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thisWindow *fyne.Window) *fyne.Container {
-	box := container.NewVBox()
+func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thisWindow *fyne.Window) *container.AppTabs {
+	box := container.NewAppTabs()
 	for i := 0; i < len(allFields.sections); i++ {
-		baseform := widget.NewForm()
+		baseform := container.NewVBox()
 		sec := allFields.sections[i]
 		for j := 0; j < len(sec.fields); j++ {
 			fld := sec.fields[j]
 			switch fld.fieldindex {
 			case "string":
-				baseform.AppendItem(widget.NewFormItem(fld.label, allFields.stringValues[fld.valuesIndex]))
+				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+				baseform.Objects = append(baseform.Objects, allFields.stringValues[fld.valuesIndex])
 			case "select":
-				baseform.AppendItem(widget.NewFormItem(fld.label, allFields.selectValues[fld.valuesIndex]))
+				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+				baseform.Objects = append(baseform.Objects, allFields.selectValues[fld.valuesIndex])
 			case "date":
-				baseform.AppendItem(
-					widget.NewFormItem(
-						fld.label,
-						container.NewBorder(
-							nil, nil, nil,
-							widget.NewButtonWithIcon(
-								"",
-								mywidge.CalendarResource,
-								func() {
-									var deepdeep dialog.Dialog
-									deepdeep = dialog.NewCustom(
-										"Change date",
-										"Nevermind",
-										mywidge.CreateDatePicker(
-											stringToDate(allFields.dateValues[fld.valuesIndex].Text),
-											&deepdeep,
-											allFields.dateValues[fld.valuesIndex]),
-										*thisWindow,
-									)
-									deepdeep.Show()
-								},
-							),
-							allFields.dateValues[fld.valuesIndex])))
+				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+				baseform.Objects = append(baseform.Objects, container.NewBorder(
+					nil, nil, nil,
+					widget.NewButtonWithIcon(
+						"",
+						mywidge.CalendarResource,
+						func() {
+							var deepdeep dialog.Dialog
+							deepdeep = dialog.NewCustom(
+								"Change date",
+								"Nevermind",
+								mywidge.CreateDatePicker(
+									stringToDate(allFields.dateValues[fld.valuesIndex].Text),
+									&deepdeep,
+									allFields.dateValues[fld.valuesIndex]),
+								*thisWindow,
+							)
+							deepdeep.Show()
+						},
+					),
+					allFields.dateValues[fld.valuesIndex]))
 			}
 		}
-		subsection := container.NewBorder(
-			widget.NewLabelWithStyle(sec.title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			nil, nil, nil,
-			baseform)
-		box.Objects = append(box.Objects, subsection)
+		subsection := container.NewTabItem(
+			sec.title,
+			baseform,
+		)
+		box.Append(subsection)
 	}
-	box.Objects = append(box.Objects, relationshipWindow)
+	box.Append(container.NewTabItem("Relationships", relationshipWindow))
 	return box
 }
 
@@ -618,13 +623,13 @@ func drawObject(object objectStruct) string {
 	switch object.otype {
 	case "Physical Application Component":
 		return fmt.Sprintf(
-			"System(%s,\"%s\",\"\",\"\",$type=\"PAC\")\n",
+			"System_Boundary(%s,\"%s\",$tags=\"pac\")\n",
 			object.alias,
 			object.name,
 		)
 	case "Physical Technology Component":
 		return fmt.Sprintf(
-			"System(%s,\"%s\",\"\",\"\",$type=\"PTC\")\n",
+			"System_Boundary(%s,\"%s\",$tags=\"ptc\")\n",
 			object.alias,
 			object.name,
 		)
@@ -634,7 +639,7 @@ func drawObject(object objectStruct) string {
 			children.WriteString(drawObject(x))
 		}
 		return fmt.Sprintf(
-			"Enterprise_Boundary(%s,\"%s\",\"\") {\n%s}\n",
+			"System_Boundary(%s,\"%s\",$tags=\"loc\") {\n%s}\n",
 			object.alias,
 			object.name,
 			children.String(),
@@ -645,20 +650,20 @@ func drawObject(object objectStruct) string {
 			children.WriteString(drawObject(x))
 		}
 		return fmt.Sprintf(
-			"System_Boundary(%s,\"%s\",\"\") {\n%s}\n",
+			"System_Boundary(%s,\"%s\",$tags=\"loc\") {\n%s}\n",
 			object.alias,
 			object.name,
 			children.String(),
 		)
 	case "Capability":
 		return fmt.Sprintf(
-			"System(%s,\"%s\",\"\",\"\",$type=\"CAP\")\n",
+			"System_Boundary(%s,\"%s\",$tags=\"cap\")\n",
 			object.alias,
 			object.name,
 		)
 	default:
 		return fmt.Sprintf(
-			"System(%s,\"%s\",\"\",\"\",$type=\"%v\")\n",
+			"System_Boundary(%s,\"%s\",$tags=\"%v\")\n",
 			object.alias,
 			object.name,
 			object.otype,
@@ -1005,7 +1010,7 @@ func createRelationshipWindow(
 							}
 							relationships := map[string]relationshipStruct{}
 							objects := map[string]objectStruct{}
-							addToObjectStruct(&objects, alreadyDrawn[basics.ObjectId], basics.Name, "PAC")
+							addToObjectStruct(&objects, alreadyDrawn[basics.ObjectId], basics.Name, "pac")
 							for _, x := range selectedRelations {
 								leftAlias := ""
 								rightAlias := ""
@@ -1059,7 +1064,7 @@ func createRelationshipWindow(
 		relationshipList)
 }
 
-var PlantUMLStart = "@startuml Solution Context\n!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons\n!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5\n!include DEVICONS/angular.puml\n!include DEVICONS/java.puml\n!include DEVICONS/msql_server.puml\n!include FONTAWESOME/users.puml\nSetDefaultLegendEntries(\"\")\nLAYOUT_WITH_LEGEND()\n"
+var PlantUMLStart = "@startuml Solution Context\n!include https://raw.githubusercontent.com/colinmo/iserver-diagram/main/togaf/togaf-full.puml\n"
 var PlantUMLEnd = "@enduml"
 
 /* Let people press enter to submit a search */

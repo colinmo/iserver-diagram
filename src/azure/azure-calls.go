@@ -56,6 +56,7 @@ type AttributeTypeStruct struct {
 	Value               string   `json:"Value"`
 	Values              []string `json:"Values"`
 }
+
 type ObjectStruct struct {
 	ObjectID         string                `json:"ObjectId"`
 	Name             string                `json:"Name"`

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	fyne "fyne.io/fyne/v2"
+	"github.com/xuri/excelize/v2"
 )
 
 func (az AzureAuth) listOfType(pacorptc, defaultModel, department string) map[string]ObjectStruct {
@@ -214,23 +215,20 @@ func (a *AzureAuth) SaveObjectFields(
 ) (bool, string, string) {
 	saveValues := SaveObject{}
 	saveValues.Name = stringValues["Title"]
-	if id == "" {
-		saveValues.ModelId = BaselineArchitectureModel
-		switch objectName {
-		case "Physical Application Component":
-			saveValues.ObjectTypeId = "6fb624e4-b642-ea11-a601-28187852aafd"
-		case "Physical Technology Component":
-			saveValues.ObjectTypeId = "140714ec-b642-ea11-a601-28187852aafd"
-		case "Logical Application Component":
-			saveValues.ObjectTypeId = "7cb624e4-b642-ea11-a601-28187852aafd"
-		}
-		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
-			AttributeName:     "Name",
-			AttributeCategory: "Text",
-			TextValue:         stringValues["Title"],
-		})
-
+	saveValues.ModelId = BaselineArchitectureModel
+	switch objectName {
+	case "Physical Application Component":
+		saveValues.ObjectTypeId = "6fb624e4-b642-ea11-a601-28187852aafd"
+	case "Physical Technology Component":
+		saveValues.ObjectTypeId = "140714ec-b642-ea11-a601-28187852aafd"
+	case "Logical Application Component":
+		saveValues.ObjectTypeId = "7cb624e4-b642-ea11-a601-28187852aafd"
 	}
+	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
+		AttributeName:     "Name",
+		AttributeCategory: "Text",
+		TextValue:         stringValues["Title"],
+	})
 	delete(stringValues, "Title")
 	for i, e := range stringValues {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
@@ -271,6 +269,7 @@ func (a *AzureAuth) SaveObjectFields(
 
 	}
 	x, err := json.Marshal(saveValues)
+	fmt.Printf("Saving as %s\n", string(x))
 	if err == nil {
 		var mep io.ReadCloser
 		if id == "" {
@@ -322,7 +321,7 @@ func (a *AzureAuth) FindRelations(id string) []RelationStruct {
 
 	path := "/odata/Relationships"
 	query := fmt.Sprintf(
-		`includeIntersectional=false&%%24select=RelationshipId%%2CLeadObjectId%%2CMemberObjectId%%2CLeadObject%%2CMemberObject&%%24expand=RelationshipType(%%24select%%3DName%%2CLeadToMemberDirection)%%2CLeadObject(%%24select%%3DName%%2CObjectId%%2CObjectType%%3B%%24expand%%3DObjectType(%%24select%%3DName))%%2CMemberObject(%%24select%%3DName%%2CObjectId%%2CObjectType)&%%24filter=LeadObjectId%%20eq%%20%s%%20or%%20MemberObjectId%%20eq%%20%s`,
+		`includeIntersectional=false&%%24select=RelationshipId%%2CLeadObjectId%%2CMemberObjectId%%2CLeadObject%%2CMemberObject&%%24expand=RelationshipType(%%24select%%3DName%%2CLeadToMemberDirection)%%2CLeadObject(%%24select%%3DName%%2CObjectId%%2CObjectType%%3B%%24expand%%3DObjectType(%%24select%%3DName))%%2CMemberObject(%%24select%%3DName%%2CObjectId%%2CObjectType%%3B%%24expand%%3DObjectType(%%24select%%3DName))&%%24filter=LeadObjectId%%20eq%%20%s%%20or%%20MemberObjectId%%20eq%%20%s`,
 		id,
 		id,
 	)
@@ -598,4 +597,146 @@ func (a *AzureAuth) FindMeInTypeThen(
 	}
 
 	putInto(toReturn)
+}
+
+func (a *AzureAuth) GetRelationsAsSliceString(objectid, objecttype string) map[string][]string {
+	returns := map[string][]string{
+		"Capabilities": {},
+	}
+	for _, x := range a.FindRelations(objectid) {
+		target := x.MemberObject
+		if x.MemberObjectId == objectid {
+			target = x.LeadObject
+		}
+		returns[target.Type.Name] = append(returns[target.Type.Name], target.Name)
+	}
+	return returns
+}
+
+// Create the excel ProductManager overview report from iserver data
+func (a *AzureAuth) CreateProductManagerOverviewReport(department string) {
+	f := excelize.NewFile()
+
+	// Header style
+	style_header, err := f.NewStyle(&excelize.Style{
+		Border: []excelize.Border{
+			{Type: "bottom", Color: "000000", Style: 3},
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+		},
+		Font: &excelize.Font{
+			Bold: true,
+			Size: 20,
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	rowidx := 1
+	row := []interface{}{
+		"Object ID",
+		"Object Name",
+		"Object Type",
+		"Product Manager",
+		"Business Owner",
+		"Serviceability",
+		"Lifecycle",
+		"Capabilities",
+		"Physical Application Component",
+		"Physical Technology Component",
+		"Physical Data Component",
+	}
+	cell, err := excelize.CoordinatesToCellName(1, rowidx)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	f.SetSheetRow("Sheet1", cell, &row)
+	f.SetCellStyle("Sheet1", "A1", "K1", style_header)
+	f.SetColWidth("Sheet1", "H", "K", 33)
+
+	// Wrap style
+	style, err := f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{
+			WrapText: true,
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	type objects struct {
+		Value    []IServerObjectStruct `json:"value"`
+		NextLink string                `json:"@odata.nextLink"`
+	}
+
+	// Get all PAC and PTC by Product Manager
+	path := "/odata/Objects"
+	query := fmt.Sprintf(
+		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Owner','Lifecycle Status','Serviceability characteristics','Department'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:indexof(b/Value,'%s') gt -1)) and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/all(b:indexof(b/Value,'Retired') eq -1))`,
+		department[1:6],
+	)
+	query = strings.ReplaceAll(query, " ", "%20")
+	for {
+		var oneCall objects
+		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			log.Fatalf("failed to call endpoint %v\n", err)
+		}
+		defer mep.Close()
+		bytemep, err := io.ReadAll(mep)
+		json.Unmarshal(bytemep, &oneCall)
+
+		if err != nil {
+			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		for _, x := range oneCall.Value {
+			fieldmap := map[string]interface{}{}
+			for _, y := range x.AttributeValues {
+				fieldmap[y.AttributeName] = y.StringValue
+			}
+			// Get all related Capabilities, PTC/PAC, Data items
+			rels := a.GetRelationsAsSliceString(x.ObjectId, x.ObjectType.Id)
+			// Cell
+			rowidx = rowidx + 1
+			row := []interface{}{
+				x.ObjectId,
+				x.Name,
+				x.ObjectType.Name,
+				fieldmap["Owner"],
+				fieldmap["Department"],
+				fieldmap["Serviceability characteristics"],
+				fieldmap["Lifecycle Status"],
+				strings.Join(rels["Capability"], "\r\n"),
+				strings.Join(rels["Physical Application Component"], "\r\n"),
+				strings.Join(rels["Physical Technology Component"], "\r\n"),
+				strings.Join(rels["Physical Data Component"], "\r\n"),
+			}
+			cell, err := excelize.CoordinatesToCellName(1, rowidx)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			f.SetSheetRow("Sheet1", cell, &row)
+		}
+		cell, _ = excelize.CoordinatesToCellName(11, rowidx)
+		f.SetCellStyle("Sheet1", "H2", cell, style)
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			log.Printf("Failed to parse next")
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+	// Export as an Excel report
+	if err := f.SaveAs("Book1.xlsx"); err != nil {
+		fmt.Println(err)
+	}
 }

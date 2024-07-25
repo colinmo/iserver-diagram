@@ -64,25 +64,7 @@ func layoutsAsString(x Layout) string {
 
 func boundaryAsString(b Boundary) string {
 	toReturn := new(bytes.Buffer)
-
-	switch b.Model {
-	case "Enterprise":
-		toReturn.WriteString("Enterprise_Boundary(")
-		b.TOGAF = ""
-	case "System":
-		toReturn.WriteString("System_Boundary(")
-		b.TOGAF = ""
-	default:
-		toReturn.WriteString("Boundary(")
-	}
-	toReturn.WriteString(fmt.Sprintf("%s,\"%s\",\"%s\"", b.Alias, b.Name, b.TOGAF))
-	if len(b.TOGAF) > 0 {
-		toReturn.WriteString(
-			fmt.Sprintf(
-				",$type=\"%s\"",
-				b.TOGAF))
-	}
-	toReturn.WriteString(") {\n")
+	toReturn.WriteString(fmt.Sprintf("System_Boundary(%s,\"%s\",$tags=\"%s\") { \n", b.Alias, b.Name, b.TOGAF))
 	for _, b2 := range b.Boundaries {
 		toReturn.WriteString(boundaryAsString(b2))
 	}
@@ -93,59 +75,13 @@ func boundaryAsString(b Boundary) string {
 }
 
 func containerAsString(c Container) string {
-	toReturn := new(bytes.Buffer)
-
-	suffix := ""
-	if c.External {
-		suffix = "_Ext"
-	}
-	switch c.Model {
-	case "ContainerDb":
-		toReturn.WriteString(
-			fmt.Sprintf(
-				"ContainerDb%s(%s,\"%s\",\"\",\"%s\"",
-				suffix,
-				c.Alias,
-				c.Name,
-				c.Description))
-	case "Person":
-		toReturn.WriteString(
-			fmt.Sprintf(
-				"Person%s(%s,\"%s\",\"\",\"\"",
-				suffix,
-				c.Alias,
-				c.Name,
-			),
-		)
-	case "System":
-		toReturn.WriteString(
-			fmt.Sprintf(
-				"System%s(%s,\"%s\",\"%s\",\"\"",
-				suffix,
-				c.Alias,
-				c.Name,
-				c.Description))
-	}
-	if len(c.TOGAF) > 0 {
-		toReturn.WriteString(
-			fmt.Sprintf(
-				",$type=\"%s\"",
-				c.TOGAF))
-	}
-	if len(c.Sprite) > 0 {
-		toReturn.WriteString(
-			fmt.Sprintf(
-				",$sprite=\"%s\"",
-				c.Sprite))
-	}
-	if len(c.Tags) > 0 {
-		toReturn.WriteString(
-			fmt.Sprintf(
-				",$tags=\"%s\"",
-				c.Tags))
-	}
-	toReturn.WriteString(")\n")
-	return toReturn.String()
+	return fmt.Sprintf(
+		"System_Boundary(%s,\"%s\",$tags=\"%s\",$descr=\"%s\")\n",
+		c.Alias,
+		c.Name,
+		c.TOGAF,
+		c.Description,
+	)
 }
 
 func NewChart() Chart {
@@ -154,7 +90,7 @@ func NewChart() Chart {
 
 func (c *Chart) Draw() string {
 	toReturn := new(bytes.Buffer)
-	toReturn.WriteString("@startuml Solution Context\n!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\n!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons\n!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5\n!include DEVICONS/angular.puml\n!include DEVICONS/java.puml\n!include DEVICONS/msql_server.puml\n!include FONTAWESOME/users.puml\nSetDefaultLegendEntries(\"\")\nLAYOUT_WITH_LEGEND()\n")
+	toReturn.WriteString("@startuml Solution Context\n!include https://raw.githubusercontent.com/colinmo/iserver-diagram/main/togaf/togaf-full.puml\n")
 	for _, ob := range c.Boundaries {
 		toReturn.WriteString(boundaryAsString(ob))
 	}
