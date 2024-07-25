@@ -1123,6 +1123,7 @@ func PtcFields() modelFields {
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
+			"Department":                       widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
 			"Owner":      widget.NewSelect([]string{}, func(bob string) {}),
@@ -1154,6 +1155,7 @@ func PtcFields() modelFields {
 					1: {"Owner (Product Manager)", "select", "Owner"},
 					2: {"Custodian", "string", "GU::Information System Custodian"},
 					3: {"Supplier", "string", "Supplier"},
+					4: {"Department (Business Owner)", "string", "Department"},
 				},
 			},
 			2: {
@@ -1190,6 +1192,7 @@ func PacFields() modelFields {
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
+			"Department":                       widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
 			"Owner":      widget.NewSelect([]string{}, func(bob string) {}),
@@ -1227,6 +1230,7 @@ func PacFields() modelFields {
 					1: {"Owner (Legacy)", "string", "Owner (Legacy)"},
 					2: {"Custodian", "string", "GU::Information System Custodian"},
 					3: {"Supplier", "string", "Supplier"},
+					4: {"Department (Business Owner)", "string", "Department"},
 				},
 			},
 			2: {

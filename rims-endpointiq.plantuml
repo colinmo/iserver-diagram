@@ -1,22 +1,19 @@
 @startuml Solution Context
 ' Ty to https://medium.com/@usetech/visualizing-the-architecture-with-the-c4-model-and-plantuml-fe45af55a814
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!include /Users/s457972/Desktop/togaf/togaf.puml
+!include ./togaf/togaf.puml
 SetDefaultLegendEntries("")
 !$BOUNDARY_IMAGE_SIZE_FACTOR = 0.60
 skinparam linetype polyline
-UpdateBoundaryStyle("location", $borderColor=#623f36, $borderThickness=5, $borderStyle="solid", $sprite="loc", $type="Location")
-UpdateBoundaryStyle("pac", $borderColor=#65b5f6, $borderThickness=5, $borderStyle="solid", $sprite="pac", $type="Physical application component")
-UpdateBoundaryStyle("pdc", $borderColor=#ff9a00, $borderThickness=3, $borderStyle="solid", $sprite="pdc", $type="Physical data component")
-UpdateBoundaryStyle("lac", $borderColor=#65b5f6, $borderThickness=5, $borderStyle="solid", $sprite="lac", $type="Logical application component")
-UpdateBoundaryStyle("ptc", $borderColor=#02a89d, $borderThickness=5, $borderStyle="solid", $sprite="ptc", $type="Physical technology component")
-UpdateBoundaryStyle("act", $borderColor=#00695c, $borderThickness=5, $borderStyle="solid", $sprite="act", $type="Actor")
+UpdateBoundaryStyle("", $borderThickness=2, $borderStyle="solid")
 
-UpdateElementStyle("pdc", $bgColor=#ff9a00, $fontColor=#white, $sprite="pdc")
-UpdateElementStyle("pac", $bgColor=#65b5f6, $fontColor=#white, $sprite="pac")
-UpdateElementStyle("lac", $bgColor=#65b5f6, $fontColor=#white, $sprite="lac")
-UpdateElementStyle("ptc", $bgColor=#02a89d, $fontColor=#white, $sprite="ptc")
-UpdateElementStyle("act", $bgColor=#00695c, $fontColor=#white, $sprite="act")
+UpdateBoundaryStyle("loc", $bgColor=#623f36, $sprite="loc", $type="Location")
+UpdateBoundaryStyle("pac", $bgColor=#65b5f6, $sprite="pac", $type="Physical application component")
+UpdateBoundaryStyle("pdc", $bgColor=#ff9a00, $sprite="pdc", $type="Physical data component")
+UpdateBoundaryStyle("lac", $bgColor=#65b5f6, $sprite="lac", $type="Logical application component")
+UpdateBoundaryStyle("ptc", $bgColor=#02a89d, $sprite="ptc", $type="Physical technology component")
+UpdateBoundaryStyle("act", $bgColor=#00695c, $sprite="act", $type="Actor")
+
 LAYOUT_LANDSCAPE()
 LAYOUT_TOP_DOWN()
 hide stereotype
@@ -52,13 +49,4 @@ Rel_D(RIMSendpointIQ,ResearchCommercialisation,"")
 Rel_D(RIMSendpointIQ,ResearchConsultancyforCommercialGain,"")
 Rel_D(RIMSendpointIQ,ResearchEthicalClearancesAnimal,"")
 Rel_L(RIMSendpointIQ,SymplecticElements,"")
-
-'System(ResearchGrantManagement,"Research Grant Management","","cap",$type="Capability") #ff9a00
-'System(ResearchProgrammeManagement,"Research Programme Management","","cap",$type="Capability") #ff9a00
-'System(ResearchEthicsManagement,"Research Ethics Management","","cap",$type="Capability") #ff9a00
-'System(ResearchFundsManagement,"Research Funds Management","","cap",$type="Capability") #ff9a00
-'Rel(ResearchProgrammeManagement,RIMSendpointIQ,"is realized by")
-'Rel(ResearchFundsManagement,RIMSendpointIQ,"is realized by")
-'Rel(ResearchEthicsManagement,RIMSendpointIQ,"is realized by")
-'Rel(ResearchGrantManagement,RIMSendpointIQ,"is realized by")
 @enduml

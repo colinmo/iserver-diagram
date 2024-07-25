@@ -1,0 +1,20 @@
+echo "@startuml" > togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 actor.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 capability.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 contract.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 control.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 data_entry.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 event.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 function.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 information_system_service.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 logical_application_component_2.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 logical_data_component.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 measure.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 objective.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 org_unit.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 physical_data_component.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 physical_technology_component.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 platform_service.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 product.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 role.png >> togaf.puml
+java -jar ~/TOOLS/plantuml-1.2024.6.jar -encodesprite 8 service_quality.png >> togaf.puml

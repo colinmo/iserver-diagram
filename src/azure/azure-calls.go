@@ -405,7 +405,7 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 		strings.Replace(department, "&", "%26", -1),
 	)
 	path := "/odata/Objects"
-	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Owner','GU::Review Bodies','Owner (Legacy)','Internal Recommendation','Operational Importance'))&`+
+	query := fmt.Sprintf(`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Lifecycle Status','IServerID','Description','Owner','GU::Review Bodies','Owner (Legacy)','Internal Recommendation','Operational Importance','Department'))&`+
 		`$filter=Model/Name eq '%s'`+
 		` and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component')`+
 		`%s`,
