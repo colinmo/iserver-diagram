@@ -6,7 +6,7 @@ build-windows:
 
 build-osx:
 	cd src && \
-	fyne package -os darwin
+	GOFLAGS="-ldflags=-extldflags=-Wl,-ld_classic,-no_warn_duplicate_libraries,-v" fyne package -os darwin 
 
 build-oldosx:
 	cd src && \
