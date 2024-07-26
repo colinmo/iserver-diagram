@@ -471,32 +471,34 @@ func (a *AzureAuth) GetRelationTypesForObjectType(objectTypeId1, objectTypeId2 s
 	path := fmt.Sprintf("/odata/RelationshipTypes/GetByObjectTypes(objectTypeId1=%s,objectTypeId2=%s)", objectTypeId1, objectTypeId2)
 	query := `$expand=RelationshipTypePairs`
 
-	for {
-		var oneCall objects
-		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
-		if err != nil {
-			log.Fatalf("failed to call endpoint %v\n", err)
-		}
-		bytemep, err := io.ReadAll(mep)
-		json.Unmarshal(bytemep, &oneCall)
+	if objectTypeId1 != "" && objectTypeId2 != "" {
+		for {
+			var oneCall objects
+			mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+			if err != nil {
+				log.Fatalf("failed to call endpoint %v\n", err)
+			}
+			bytemep, err := io.ReadAll(mep)
+			json.Unmarshal(bytemep, &oneCall)
 
-		if err != nil {
-			log.Fatalf("failed to read io.Reader %v\n", err)
+			if err != nil {
+				log.Fatalf("failed to read io.Reader %v\n", err)
+			}
+			for _, rel := range oneCall.Value {
+				toReturn[rel.RelationshipTypeId] = rel
+			}
+			if len(oneCall.NextLink) == 0 {
+				break
+			}
+			bits, err := url.Parse(oneCall.NextLink)
+			if err != nil {
+				log.Printf("Failed to parse next")
+				break
+			}
+			path = bits.Path
+			query = bits.RawQuery
+			time.Sleep(100 * time.Millisecond)
 		}
-		for _, rel := range oneCall.Value {
-			toReturn[rel.RelationshipTypeId] = rel
-		}
-		if len(oneCall.NextLink) == 0 {
-			break
-		}
-		bits, err := url.Parse(oneCall.NextLink)
-		if err != nil {
-			log.Printf("Failed to parse next")
-			break
-		}
-		path = bits.Path
-		query = bits.RawQuery
-		time.Sleep(100 * time.Millisecond)
 	}
 	return toReturn
 }

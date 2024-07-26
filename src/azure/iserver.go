@@ -6,72 +6,13 @@ import (
 	"io"
 	"log"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
 	fyne "fyne.io/fyne/v2"
 	"github.com/xuri/excelize/v2"
 )
-
-func (az AzureAuth) listOfType(pacorptc, defaultModel, department string) map[string]ObjectStruct {
-	type objects struct {
-		Value    []ObjectStruct `json:"value"`
-		NextLink string         `json:"@odata.nextLink"`
-	}
-	toReturn := map[string]ObjectStruct{}
-	expandFilter := ""
-
-	path := "/odata/Objects"
-	query := `$expand=ObjectType($select=Name),AttributeValues($select=AttributeName,StringValue` + expandFilter + `)` +
-		`&$filter=Model/Name%20eq%20'` + strings.ReplaceAll(defaultModel, " ", "%20") + "'" +
-		`%20and%20` +
-		`AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueText/any(a:a/AttributeName%20eq%20'GU::Domain'%20and%20a/Value%20eq%20'` + strings.ReplaceAll(department, " ", "%20") + `')` +
-		`%20and%20` +
-		`ObjectType/Name%20eq%20'` + strings.ReplaceAll(pacorptc, " ", "%20") + `'`
-
-	for {
-		var oneCall objects
-		mep, err := az.CallRestEndpoint("GET", path, []byte{}, query)
-		if err != nil {
-			log.Fatalf("failed to call endpoint %v\n", err)
-		}
-		defer mep.Close()
-		bytemep, err := io.ReadAll(mep)
-		json.Unmarshal(bytemep, &oneCall)
-
-		if err != nil {
-			log.Fatalf("failed to read io.Reader %v\n", err)
-		}
-		for _, xx := range oneCall.Value {
-			newValues := []AttributeTypeStruct{{
-				AttributeName: defaultModel + ":IServerID",
-				StringValue:   xx.ObjectID,
-				Value:         xx.ObjectID,
-			}}
-			for _, yy := range xx.Attributevalues {
-				yy.AttributeName = defaultModel + ":" + yy.AttributeName
-				newValues = append(newValues, yy)
-			}
-			xx.Attributevalues = newValues
-			if me, ok := toReturn[xx.Name]; ok {
-				xx.Attributevalues = append(xx.Attributevalues, me.Attributevalues...)
-			}
-			toReturn[xx.Name] = xx
-		}
-		if len(oneCall.NextLink) == 0 {
-			break
-		}
-		bits, err := url.Parse(oneCall.NextLink)
-		if err != nil {
-			log.Printf("Failed to parse next")
-			break
-		}
-		path = bits.Path
-		query = bits.RawQuery
-		time.Sleep(100 * time.Millisecond)
-	}
-	return toReturn
-}
 
 type FindStruct struct {
 	Name     string `json:"Name"`
@@ -141,7 +82,7 @@ type laterStringList func(map[string][]string, *fyne.Window)
 type laterDomainOwned func(map[string][]IServerObjectStruct, fyne.Window)
 
 // Simple find over iServer components, looking for the specified string
-// Focuses on PAC and LAC
+// Focuses on PAC, PTC, and LAC
 func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWindow *fyne.Window) {
 	toReturn := []FindStruct{}
 
@@ -548,7 +489,6 @@ func (a *AzureAuth) GetChoicesForName(me string) map[string]string {
 }
 
 // Simple find over iServer components, looking for the specified string
-// Focuses on PAC and LAC
 func (a *AzureAuth) FindMeInTypeThen(
 	lookFor string,
 	objectType string,
@@ -599,6 +539,8 @@ func (a *AzureAuth) FindMeInTypeThen(
 	putInto(toReturn)
 }
 
+// EXCEL FUNCTIONS
+
 func (a *AzureAuth) GetRelationsAsSliceString(objectid, objecttype string) map[string][]string {
 	returns := map[string][]string{
 		"Capabilities": {},
@@ -614,7 +556,7 @@ func (a *AzureAuth) GetRelationsAsSliceString(objectid, objecttype string) map[s
 }
 
 // Create the excel ProductManager overview report from iserver data
-func (a *AzureAuth) CreateProductManagerOverviewReport(department string) {
+func (a *AzureAuth) CreateProductManagerOverviewReport(department, savePath string) {
 	f := excelize.NewFile()
 
 	// Header style
@@ -655,7 +597,15 @@ func (a *AzureAuth) CreateProductManagerOverviewReport(department string) {
 	}
 	f.SetSheetRow("Sheet1", cell, &row)
 	f.SetCellStyle("Sheet1", "A1", "K1", style_header)
-	f.SetColWidth("Sheet1", "H", "K", 33)
+	f.SetColWidth("Sheet1", "B", "B", 62)
+	f.SetColWidth("Sheet1", "D", "D", 41.33)
+	f.SetColWidth("Sheet1", "E", "E", 62.17)
+	f.SetColWidth("Sheet1", "F", "F", 133.5)
+	f.SetColWidth("Sheet1", "G", "G", 17.17)
+	f.SetColWidth("Sheet1", "H", "H", 31.17)
+	f.SetColWidth("Sheet1", "I", "K", 52.17)
+	f.SetColVisible("Sheet1", "A", false)
+	f.SetColVisible("Sheet1", "C", false)
 
 	// Wrap style
 	style, err := f.NewStyle(&excelize.Style{
@@ -721,8 +671,6 @@ func (a *AzureAuth) CreateProductManagerOverviewReport(department string) {
 			}
 			f.SetSheetRow("Sheet1", cell, &row)
 		}
-		cell, _ = excelize.CoordinatesToCellName(11, rowidx)
-		f.SetCellStyle("Sheet1", "H2", cell, style)
 		if len(oneCall.NextLink) == 0 {
 			break
 		}
@@ -735,8 +683,11 @@ func (a *AzureAuth) CreateProductManagerOverviewReport(department string) {
 		query = bits.RawQuery
 		time.Sleep(100 * time.Millisecond)
 	}
+	cell, _ = excelize.CoordinatesToCellName(11, rowidx)
+	f.SetCellStyle("Sheet1", "H2", cell, style)
+	f.AddTable("Sheet1", &excelize.Table{Range: "A1:" + cell})
 	// Export as an Excel report
-	if err := f.SaveAs("Book1.xlsx"); err != nil {
+	if err := f.SaveAs(filepath.Join(savePath, "iServerAudit.xlsx")); err != nil {
 		fmt.Println(err)
 	}
 }

@@ -50,7 +50,7 @@ func buildMonthSelect(dateToShow time.Time, owningDialog *dialog.Dialog, targetE
 		}
 		days = append(
 			days,
-			container.NewMax(
+			container.NewStack(
 				widget.NewButton(fmt.Sprintf("%d", thisDay.Day()), func() {
 					targetElement.SetText(mike.Format("2006-01-02"))
 					(*owningDialog).Hide()
