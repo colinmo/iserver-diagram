@@ -81,6 +81,53 @@ type laterRelationUpdate func(IServerObjectStruct, []RelationStruct, *fyne.Windo
 type laterStringList func(map[string][]string, *fyne.Window)
 type laterDomainOwned func(map[string][]IServerObjectStruct, fyne.Window)
 
+var ImportantFields = map[string][]string{
+	"GEN": {
+		"Name",
+		"Description",
+	},
+	"PAC": {
+		"Alias",
+		"Description",
+		"Links",
+		"Categories",
+		"Owner",
+		"GU::Domain",
+		"Department",
+		"GU::Solution Classification",
+		"GU::Information Security Classification",
+		"Vendor",
+		"Supplier",
+		"Application Type",
+		"Operational Importance",
+		"Deployment Method",
+		"Build",
+
+		"Lifecycle Status",
+		"Internal Recommendation",
+		"Date of Last Release",
+		"Date of Next Release",
+		"Internal: In Development From",
+		"Internal: Live Date",
+		"Internal: Phase Out From",
+		"Internal: Retirement Date",
+		"Vendor: Contained From",
+		"Vendor: Out Of Support",
+
+		"Standard Class",
+		"Standard Creation Date",
+		"Last Standard Review Date",
+		"Next Standard Review Date",
+		"Standard Retire Date",
+		"Approved Usage",
+		"Conditions & Restrictions",
+
+		"GU::Managed Outside Of DS",
+		"GU::Object Visibility",
+		"Serviceability characteristics",
+	},
+}
+
 // Simple find over iServer components, looking for the specified string
 // Focuses on PAC, PTC, and LAC
 func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWindow *fyne.Window) {
@@ -128,11 +175,12 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 	putInto(toReturn, thenWindow)
 }
 
-func (a *AzureAuth) GetImportantFields(id string) IServerObjectStruct {
+func (a *AzureAuth) GetImportantFields(id, typeofobject string) IServerObjectStruct {
 	toReturn := IServerObjectStruct{}
 
+	query := `$expand=` + url.QueryEscape(`ObjectType($select=Name,ObjectTypeId),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName in ("`+strings.Join(ImportantFields[typeofobject], `","`)+`"))`)
+
 	path := fmt.Sprintf("/odata/Objects(%s)", id)
-	query := `$expand=ObjectType($select=Name,ObjectTypeId),AttributeValues($select=StringValue,AttributeName,AttributeId;$filter=AttributeName%20in%20('Description','Owner','Owner%20(Legacy)','GU::Managed%20Outside%20Of%20DS','GU::Information%20System%20Custodian','GU::Review%20Bodies','Lifecycle%20Status','GU::Information%20Security%20Classification','GU::Object%20Visibility','GU::Solution%20Classification','Internal:%20In%20Development%20From','Internal:%20Live%20Date','Internal:%20Phase%20Out%20From','Internal:%20Retirement%20Date','Supplier','Internal%20Recommendation','Operational%20Importance','GU::Domain','Department'))`
 	mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 	if err != nil {
 		log.Fatalf("failed to call endpoint %v\n", err)
@@ -295,8 +343,8 @@ func (a *AzureAuth) FindRelations(id string) []RelationStruct {
 	return toReturn
 }
 
-func (a *AzureAuth) FindRelationsThen(id string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
-	putInto(a.GetImportantFields(id), a.FindRelations(id), thenWindow)
+func (a *AzureAuth) FindRelationsThen(id string, typeofobject string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
+	putInto(a.GetImportantFields(id, typeofobject), a.FindRelations(id), thenWindow)
 }
 
 func (a *AzureAuth) GetProductManagersThen(department string, putInto laterStringList, thenWindow *fyne.Window) {
@@ -452,7 +500,7 @@ func (a *AzureAuth) GetChoicesForName(me string) map[string]string {
 	// Lifecycle
 	Choices := map[string]string{}
 	path := "/odata/Attributes"
-	query := strings.ReplaceAll(fmt.Sprintf("%%24filter=Name eq '%s'", me), " ", "%20")
+	query := `$filter=` + url.QueryEscape(fmt.Sprintf("Name eq '%s'", me))
 	for {
 		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
 		if err != nil {

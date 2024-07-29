@@ -239,34 +239,39 @@ func ListAndSelectAThing(things []azure.FindStruct, thenWindow *fyne.Window) {
 			)
 		},
 		func(id int, item fyne.CanvasObject) {
+			me := item.(*fyne.Container).Objects[0].(*widget.Button)
 			switch things[id].Type.Name {
 			case "Physical Technology Component":
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetIcon(resourcePtcPng)
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetText("PTC")
+				me.SetIcon(resourcePtcPng)
+				me.SetText("PTC")
 			case "Physical Application Component":
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetIcon(resourcePacPng)
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetText("PAC")
+				me.SetIcon(resourcePacPng)
+				me.SetText("PAC")
 			case "Logical Application Component":
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetIcon(resourceLacPng)
-				item.(*fyne.Container).Objects[0].(*widget.Button).SetText("LAC")
+				me.SetIcon(resourceLacPng)
+				me.SetText("LAC")
 			default:
 				fmt.Printf("Dunno: %s\n", things[id].Type.Name)
 			}
-			item.(*fyne.Container).Objects[0].(*widget.Button).OnTapped = func() {
-				windowTitle := fmt.Sprintf("Details for %s", things[id].Name)
-				var lookupWindow fyne.Window
-				var x bool
-				if lookupWindow, x = windows[windowTitle]; !x {
-					addWindowFor(windowTitle, 650, 650)
-					lookupWindow = windows[windowTitle]
-				}
-				UpdateMessage("Loading")
-				lookupWindow.Show()
+			me.OnTapped = func() {
+				if me.Text == "PAC" {
+					windowTitle := fmt.Sprintf("Details for %s", things[id].Name)
+					var lookupWindow fyne.Window
+					var x bool
+					if lookupWindow, x = windows[windowTitle]; !x {
+						addWindowFor(windowTitle, 650, 650)
+						lookupWindow = windows[windowTitle]
+					}
+					UpdateMessage("Loading")
+					lookupWindow.Show()
 
-				lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
-				windows[windowTitle] = lookupWindow
-				az.FindRelationsThen(things[id].ObjectId, ListRelationsToSelect, &lookupWindow)
-				UpdateMessage("Ready")
+					lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
+					windows[windowTitle] = lookupWindow
+					az.FindRelationsThen(things[id].ObjectId, "PAC", ListRelationsToSelect, &lookupWindow)
+					UpdateMessage("Ready")
+				} else {
+					dialog.ShowInformation("Nope", "Physical Application Containers only for now sorry", *thenWindow)
+				}
 			}
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(things[id].Name)
 		},
@@ -407,15 +412,14 @@ func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thi
 		sec := allFields.sections[i]
 		for j := 0; j < len(sec.fields); j++ {
 			fld := sec.fields[j]
+			baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+			fmt.Printf("Adding " + fld.label + " (" + fld.fieldindex + ")\n")
 			switch fld.fieldindex {
 			case "string":
-				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 				baseform.Objects = append(baseform.Objects, allFields.stringValues[fld.valuesIndex])
 			case "select":
-				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 				baseform.Objects = append(baseform.Objects, allFields.selectValues[fld.valuesIndex])
 			case "date":
-				baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 				baseform.Objects = append(baseform.Objects, container.NewBorder(
 					nil, nil, nil,
 					widget.NewButtonWithIcon(
@@ -436,13 +440,14 @@ func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thi
 						},
 					),
 					allFields.dateValues[fld.valuesIndex]))
+			default:
+				baseform.Objects = append(baseform.Objects, widget.NewLabel("Unknown "+fld.fieldindex))
 			}
 		}
-		subsection := container.NewTabItem(
+		box.Append(container.NewTabItem(
 			sec.title,
 			baseform,
-		)
-		box.Append(subsection)
+		))
 	}
 	box.Append(container.NewTabItem("Relationships", relationshipWindow))
 	return box
@@ -506,7 +511,7 @@ func ShowDomainTree(things map[string][]azure.IServerObjectStruct, thenWindow fy
 
 					lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
 					windows[windowTitle] = lookupWindow
-					az.FindRelationsThen(meps[1], ListRelationsToSelect, &lookupWindow)
+					az.FindRelationsThen(meps[1], "GEN", ListRelationsToSelect, &lookupWindow)
 					UpdateMessage("Ready")
 				}
 			}
@@ -1250,70 +1255,93 @@ func PacFields() modelFields {
 		stringValues: map[string]*widget.Entry{
 			"Title":                            widget.NewEntry(),
 			"Description":                      widget.NewMultiLineEntry(),
-			"Owner (Legacy)":                   widget.NewEntry(),
+			"Alias":                            widget.NewEntry(),
+			"Links":                            widget.NewEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
+			"Vendor":                           widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
 			"Department":                       widget.NewEntry(),
+			"Approved Usage":                   widget.NewMultiLineEntry(),
+			"Conditions & Restrictions":        widget.NewMultiLineEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"Owner":      widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Domain": widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Managed outside of DS": widget.NewSelect(
-				[]string{"True", "False"},
-				func(bob string) {},
-			),
+			"Categories":                widget.NewSelect([]string{}, func(bob string) {}),
+			"Application Type":          widget.NewSelect([]string{}, func(bob string) {}),
+			"Operational Importance":    widget.NewSelect([]string{}, func(bob string) {}),
+			"Deployment Method":         widget.NewSelect([]string{}, func(bob string) {}),
+			"Build":                     widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner":                     widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Domain":                widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Managed outside of DS": widget.NewSelect([]string{"True", "False"}, func(bob string) {}),
 			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
-			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
 			"Internal Recommendation":                 widget.NewSelect([]string{}, func(bob string) {}),
-			"Operational Importance":                  widget.NewSelect([]string{}, func(bob string) {}),
+			"Standards Class":                         widget.NewSelect([]string{}, func(bob string) {}),
+			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
 		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
 			"Internal: Live date":           widget.NewEntry(),
 			"Internal: Phase Out From":      widget.NewEntry(),
 			"Internal: Retirement date":     widget.NewEntry(),
+			"Date of Last Release":          widget.NewEntry(),
+			"Date of Next Release":          widget.NewEntry(),
+			"Vendor: Contained From":        widget.NewEntry(),
+			"Vendor: Out Of Support":        widget.NewEntry(),
+			"Standard Creation Date":        widget.NewEntry(),
+			"Last Standard Review Date":     widget.NewEntry(),
+			"Next Standard Review Date":     widget.NewEntry(),
+			"Standard Retire Date":          widget.NewEntry(),
 		},
 		sections: map[int]sectionStruct{
 			0: {
-				title: "Basic",
+				title: "Key attributes",
 				fields: map[int]fieldsStruct{
-					0: {"Name", "string", "Title"},
-					1: {"Description", "string", "Description"},
-					2: {"Domain", "select", "GU::Domain"},
+					0:  {"Name", "string", "Title"},
+					1:  {"Description", "string", "Description"},
+					2:  {"Domain", "select", "GU::Domain"},
+					3:  {"Alias", "string", "Alias"},
+					4:  {"Links", "special", "Links"},
+					5:  {"Categories", "select", "Categories"},
+					6:  {"Owner (DS Area)", "select", "Owner"},
+					7:  {"Department (Requestor)", "string", "Department"},
+					8:  {"Solution classification", "select", "GU::Solution Classification"},
+					9:  {"Information security classification", "select", "GU::Information Security Classification"},
+					10: {"Vendor", "string", "Vendor"},
+					11: {"Supplier", "string", "Supplier"},
 				},
 			},
 			1: {
-				title: "Roles",
+				title: "Lifecycle & Roadmap",
 				fields: map[int]fieldsStruct{
-					0: {"Owner (Product Manager)", "select", "Owner"},
-					1: {"Owner (Legacy)", "string", "Owner (Legacy)"},
-					2: {"Custodian", "string", "GU::Information System Custodian"},
-					3: {"Supplier", "string", "Supplier"},
-					4: {"Department (Business Owner)", "string", "Department"},
+					0: {"Lifecycle Status", "select", "Lifecycle Status"},
+					1: {"Internal recommendation", "select", "Internal Recommendation"},
+					2: {"Date of Last Release", "date", "Date of Last Release"},
+					3: {"Date of Next Release", "date", "Date of Next Release"},
+					4: {"In development", "date", "Internal: In Development From"},
+					5: {"Live", "date", "Internal: Live date"},
+					6: {"Phasing out", "date", "Internal: Phase Out From"},
+					7: {"Retirement", "date", "Internal: Retirement date"},
+					8: {"Vendor Contained From", "date", "Vendor: Contained From"},
+					9: {"Vendor Out of Support", "date", "Vendor: Out Of Support"},
 				},
 			},
 			2: {
-				title: "Meta",
+				title: "Standards & Usage",
 				fields: map[int]fieldsStruct{
-					0: {"Information security classification", "select", "GU::Information Security Classification"},
-					1: {"Solution classification", "select", "GU::Solution Classification"},
-					2: {"Visible in applist", "select", "GU::Object Visibility"},
-					3: {"Review", "string", "GU::Review Bodies"},
-					4: {"Internal recommendation", "select", "Internal Recommendation"},
-					5: {"Operational importance", "select", "Operational Importance"},
-				},
-			},
-			3: {
-				title: "Dates",
-				fields: map[int]fieldsStruct{
-					0: {"In development", "date", "Internal: In Development From"},
-					1: {"Live", "date", "Internal: Live date"},
-					2: {"Phasing out", "date", "Internal: Phase Out From"},
-					3: {"Retirement", "date", "Internal: Retirement date"},
-					4: {"Lifecycle Status", "select", "Lifecycle Status"},
+					0:  {"Standard Class", "select", "Standards Class"},
+					1:  {"Standard Creation Date", "date", "Standard Creation Date"},
+					2:  {"Last Standard Review Date", "date", "Last Standard Review Date"},
+					3:  {"Next Standard Review Date", "date", "Next Standard Review Date"},
+					4:  {"Standard Retire Date", "date", "Standard Retire Date"},
+					5:  {"Approved Usage", "string", "Approved Usage"},
+					6:  {"Conditions & Restrictions", "string", "Conditions & Restrictions"},
+					7:  {"Application Type", "select", "Application Type"},
+					8:  {"Operational Importance", "select", "Operational Importance"},
+					9:  {"Deployment Method", "select", "Deployment Method"},
+					10: {"Build", "select", "Build"},
 				},
 			},
 		},
