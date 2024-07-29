@@ -504,11 +504,14 @@ func (a *AzureAuth) FindMeInTypeThen(
 	path := "/odata/Objects"
 	query := strings.ReplaceAll(
 		fmt.Sprintf(
-			`$expand=AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('ObjectId','Name','ObjectType'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/ObjectTypeId eq %s and indexOf(tolower(Name),'%s') gt -1`,
+			`$expand=AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('ObjectId','Name','ObjectType','GU::Level'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/ObjectTypeId eq %s and indexOf(tolower(Name),'%s') gt -1`,
 			objectType,
 			strings.ToLower(lookFor)),
 		" ",
 		"%20")
+	if objectType == "265f5bb2-2eef-e811-9f2b-00155d26bcf8" {
+		query = query + strings.ReplaceAll("and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueNumber/any(a:a/AttributeName eq 'GU::Level' and a/Value eq 2)", " ", "%20")
+	}
 	for {
 		var oneCall objects
 		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
