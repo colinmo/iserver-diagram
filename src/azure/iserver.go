@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,6 +30,8 @@ var BaselineArchitectureModel = "0bb71446-f140-ea11-a601-28187852aafd"
 type ValuesValue struct {
 	AttributeConfigurationChoiceId string `json:"AttributeConfigurationChoiceId,omitempty"`
 	Value                          string `json:"Value,omitempty"`
+	Url                            string `json:"Url,omitempty"`
+	DisplayValue                   string `json:"DisplayValue,omitempty"`
 }
 
 type AttributeValue struct {
@@ -52,6 +55,7 @@ type SaveValue struct {
 	DateTimeValue     string        `json:"DateTimeValue,omitempty"`
 	BooleanValue      bool          `json:"BooleanValue,omitempty"`
 	ChoiceValues      []ValuesValue `json:"ChoiceValues,omitempty"`
+	Values            []ValuesValue `json:"Values,omitempty"`
 }
 type IServerObjectStruct struct {
 	Name            string           `json:"Name"`
@@ -112,7 +116,7 @@ var ImportantFields = map[string][]string{
 		"Internal: Phase Out From",
 		"Internal: Retirement Date",
 		"Vendor: Contained From",
-		"Vendor: Out Of Support",
+		"Vendor: Out of Support",
 
 		"Standard Class",
 		"Standard Creation Date",
@@ -213,12 +217,51 @@ func (a *AzureAuth) SaveObjectFields(
 	case "Logical Application Component":
 		saveValues.ObjectTypeId = "7cb624e4-b642-ea11-a601-28187852aafd"
 	}
+	fmt.Printf("Date values %v\n", dateValues)
+	// Name is special
 	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 		AttributeName:     "Name",
 		AttributeCategory: "Text",
 		TextValue:         stringValues["Title"],
 	})
 	delete(stringValues, "Title")
+
+	// So is links
+	LinkValues := []ValuesValue{}
+	re := regexp.MustCompile(`^\s*(.*?)\s*\((.*)\)$\s*`)
+	stringValues["Links"] = strings.ReplaceAll(stringValues["Links"], "\n", ",")
+	for _, e := range strings.Split(stringValues["Links"], ",") {
+		bits := re.FindStringSubmatch(e)
+		if len(bits) > 2 {
+			LinkValues = append(LinkValues, ValuesValue{
+				Url:          bits[2],
+				DisplayValue: bits[1],
+			})
+		}
+	}
+	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
+		AttributeName:     "Links",
+		AttributeCategory: "Hyperlink",
+		Values:            LinkValues,
+	})
+	delete(stringValues, "Links")
+
+	// As is Categories
+	CategoryValues := []ValuesValue{}
+	for _, e := range strings.Split(selectValues["Categories"], ",") {
+		CategoryValues = append(CategoryValues, ValuesValue{
+			Value:                          e,
+			AttributeConfigurationChoiceId: ValidChoices["Categories"][e],
+		})
+	}
+	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
+		AttributeName:     "Categories",
+		AttributeCategory: "Choice",
+		ChoiceValues:      CategoryValues,
+	})
+	delete(selectValues, "Categories")
+
+	// Generics
 	for i, e := range stringValues {
 		saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 			AttributeName:     i,
@@ -295,7 +338,11 @@ func (a *AzureAuth) SaveObjectFields(
 				Message string `json:"message"`
 			}{Message: ""})
 		}
-		return toReturn.Success, toReturn.Messages[0].Message, toReturn.SuccessMessage.MessageDefinition.ObjectId
+		returnMessages := []string{}
+		for _, x := range toReturn.Messages {
+			returnMessages = append(returnMessages, x.Message)
+		}
+		return toReturn.Success, strings.Join(returnMessages, "\n"), toReturn.SuccessMessage.MessageDefinition.ObjectId
 	}
 	return false, "Big ol' json packing failure", ""
 }

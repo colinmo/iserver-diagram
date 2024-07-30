@@ -215,6 +215,15 @@ func newPACTemplate(template modelFields) azure.IServerObjectStruct {
 			},
 		)
 	}
+	for name := range template.radioValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
 	return newObject
 }
 func tidyUp() {
@@ -287,12 +296,14 @@ type fieldsStruct struct {
 
 type sectionStruct struct {
 	title  string
-	fields map[int]fieldsStruct
+	fields map[int]map[int]fieldsStruct
 }
 
 type modelFields struct {
 	stringValues map[string]*widget.Entry
 	selectValues map[string]*widget.Select
+	radioValues  map[string]*widget.RadioGroup
+	checkValues  map[string]*widget.CheckGroup
 	dateValues   map[string]*widget.Entry
 	sections     map[int]sectionStruct
 }
@@ -320,12 +331,17 @@ func ListRelationsToSelect(
 	}
 	isString := func(str string) bool { _, x := allFields.stringValues[str]; return x }
 	isSelect := func(str string) bool { _, x := allFields.selectValues[str]; return x }
+	isRadio := func(str string) bool { _, x := allFields.radioValues[str]; return x }
+	isCheck := func(str string) bool { _, x := allFields.checkValues[str]; return x }
 	isDate := func(str string) bool { _, x := allFields.dateValues[str]; return x }
 	for _, x := range basics.AttributeValues {
 		switch {
 		case isString(x.AttributeName):
 			allFields.stringValues[x.AttributeName].SetText(x.StringValue)
 		case isSelect(x.AttributeName):
+			if x.AttributeName == "Build" {
+				x.StringValue = strings.Split(x.StringValue, " ")[0]
+			}
 			if x.AttributeName != "Owner" && x.AttributeName != "GU::Managed outside of DS" {
 				azure.ValidChoices[x.AttributeName] = az.GetChoicesForName(x.AttributeName)
 				keys := getMapStringKeys(azure.ValidChoices[x.AttributeName])
@@ -336,6 +352,24 @@ func ListRelationsToSelect(
 				)
 			}
 			allFields.selectValues[x.AttributeName].Selected = x.StringValue
+		case isRadio(x.AttributeName):
+			azure.ValidChoices[x.AttributeName] = az.GetChoicesForName(x.AttributeName)
+			keys := getMapStringKeys(azure.ValidChoices[x.AttributeName])
+			sort.Strings(keys)
+			allFields.radioValues[x.AttributeName] = widget.NewRadioGroup(
+				keys,
+				func(bob string) {},
+			)
+			allFields.radioValues[x.AttributeName].Selected = x.StringValue
+		case isCheck(x.AttributeName):
+			azure.ValidChoices[x.AttributeName] = az.GetChoicesForName(x.AttributeName)
+			keys := getMapStringKeys(azure.ValidChoices[x.AttributeName])
+			sort.Strings(keys)
+			allFields.checkValues[x.AttributeName] = widget.NewCheckGroup(
+				keys,
+				func(bob []string) {},
+			)
+			allFields.checkValues[x.AttributeName].Selected = strings.Split(x.StringValue, ",")
 		case isDate(x.AttributeName):
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
 		}
@@ -377,6 +411,16 @@ func ListRelationsToSelect(
 									selectValuesAsString[i] = x.Selected
 								}
 							}
+							for i, x := range allFields.radioValues {
+								if x.Selected != "" {
+									stringValuesAsString[i] = x.Selected
+								}
+							}
+							for i, x := range allFields.checkValues {
+								if len(x.Selected) > 0 {
+									selectValuesAsString[i] = strings.Join(x.Selected, ",")
+								}
+							}
 							for i, x := range allFields.dateValues {
 								dateValuesAsString[i] = x.Text
 							}
@@ -410,39 +454,30 @@ func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thi
 	for i := 0; i < len(allFields.sections); i++ {
 		baseform := container.NewVBox()
 		sec := allFields.sections[i]
-		for j := 0; j < len(sec.fields); j++ {
-			fld := sec.fields[j]
-			baseform.Objects = append(baseform.Objects, widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-			fmt.Printf("Adding " + fld.label + " (" + fld.fieldindex + ")\n")
-			switch fld.fieldindex {
-			case "string":
-				baseform.Objects = append(baseform.Objects, allFields.stringValues[fld.valuesIndex])
-			case "select":
-				baseform.Objects = append(baseform.Objects, allFields.selectValues[fld.valuesIndex])
-			case "date":
-				baseform.Objects = append(baseform.Objects, container.NewBorder(
-					nil, nil, nil,
-					widget.NewButtonWithIcon(
-						"",
-						mywidge.CalendarResource,
-						func() {
-							var deepdeep dialog.Dialog
-							deepdeep = dialog.NewCustom(
-								"Change date",
-								"Nevermind",
-								mywidge.CreateDatePicker(
-									stringToDate(allFields.dateValues[fld.valuesIndex].Text),
-									&deepdeep,
-									allFields.dateValues[fld.valuesIndex]),
-								*thisWindow,
-							)
-							deepdeep.Show()
-						},
-					),
-					allFields.dateValues[fld.valuesIndex]))
-			default:
-				baseform.Objects = append(baseform.Objects, widget.NewLabel("Unknown "+fld.fieldindex))
+		for k := 0; k < len(sec.fields); k++ {
+			row := sec.fields[k]
+			rowform := container.NewGridWithColumns(len(row))
+			for j := 0; j < len(row); j++ {
+				fld := row[j]
+				label := widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+				fmt.Printf("Adding " + fld.label + " (" + fld.fieldindex + ")\n")
+				switch fld.fieldindex {
+				case "string":
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.stringValues[fld.valuesIndex]))
+				case "select":
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.selectValues[fld.valuesIndex]))
+				case "radio":
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.radioValues[fld.valuesIndex]))
+				case "check":
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.checkValues[fld.valuesIndex]))
+				case "date":
+					allFields.dateValues[fld.valuesIndex] = mywidge.CalendarEntry(allFields.dateValues[fld.valuesIndex].Text, *thisWindow)
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.dateValues[fld.valuesIndex]))
+				default:
+					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, widget.NewLabel("Unknown "+fld.fieldindex)))
+				}
 			}
+			baseform.Objects = append(baseform.Objects, rowform)
 		}
 		box.Append(container.NewTabItem(
 			sec.title,
@@ -1161,17 +1196,6 @@ func (e *enterEntry) TypedKey(key *fyne.KeyEvent) {
 	}
 }
 
-func stringToDate(str string) time.Time {
-	if len(str) == 0 {
-		return time.Now()
-	}
-	str = strings.ReplaceAll(str, "/", "-")
-	dt, e := time.Parse("2006-01-02", str)
-	if e == nil {
-		return dt
-	}
-	return time.Now()
-}
 func dateValidator(str string) error {
 	if len(str) == 0 {
 		return nil
@@ -1202,6 +1226,8 @@ func PtcFields() modelFields {
 			"Internal Recommendation":                 widget.NewSelect([]string{}, func(bob string) {}),
 			"Operational Importance":                  widget.NewSelect([]string{}, func(bob string) {}),
 		},
+		radioValues: map[string]*widget.RadioGroup{},
+		checkValues: map[string]*widget.CheckGroup{},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
 			"Internal: Live date":           widget.NewEntry(),
@@ -1210,40 +1236,40 @@ func PtcFields() modelFields {
 		sections: map[int]sectionStruct{
 			0: {
 				title: "Basic",
-				fields: map[int]fieldsStruct{
-					0: {"Name", "string", "Title"},
-					1: {"Description", "string", "Description"},
-					2: {"Domain", "select", "GU::Domain"},
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"Name", "string", "Title"}},
+					1: {0: {"Description", "string", "Description"}},
+					2: {0: {"Domain", "select", "GU::Domain"}},
 				},
 			},
 			1: {
 				title: "Roles",
-				fields: map[int]fieldsStruct{
-					1: {"Owner (Product Manager)", "select", "Owner"},
-					2: {"Custodian", "string", "GU::Information System Custodian"},
-					3: {"Supplier", "string", "Supplier"},
-					4: {"Department (Business Owner)", "string", "Department"},
+				fields: map[int]map[int]fieldsStruct{
+					1: {0: {"Owner (Product Manager)", "select", "Owner"}},
+					2: {0: {"Custodian", "string", "GU::Information System Custodian"}},
+					3: {0: {"Supplier", "string", "Supplier"}},
+					4: {0: {"Department (Business Owner)", "string", "Department"}},
 				},
 			},
 			2: {
 				title: "Meta",
-				fields: map[int]fieldsStruct{
-					0: {"Information Security classification", "select", "GU::Information Security Classification"},
-					1: {"Solution classification", "select", "GU::Solution Classification"},
-					2: {"Visible in applist", "select", "GU::Object Visibility"},
-					3: {"Review", "string", "GU::Review Bodies"},
-					4: {"Internal recommendation", "select", "Internal Recommendation"},
-					5: {"Operational importance", "select", "Operational Importance"},
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"Information Security classification", "select", "GU::Information Security Classification"}},
+					1: {0: {"Solution classification", "select", "GU::Solution Classification"}},
+					2: {0: {"Visible in applist", "select", "GU::Object Visibility"}},
+					3: {0: {"Review", "string", "GU::Review Bodies"}},
+					4: {0: {"Internal recommendation", "select", "Internal Recommendation"}},
+					5: {0: {"Operational importance", "select", "Operational Importance"}},
 				},
 			},
 			3: {
 				title: "Dates",
-				fields: map[int]fieldsStruct{
-					0: {"In development", "date", "Internal: In Development From"},
-					1: {"Live", "date", "Internal: Live date"},
-					2: {"Phasing out", "date", "Internal: Phase Out From"},
-					3: {"Retirement", "date", "Internal: Retirement date"},
-					4: {"Lifecycle Status", "select", "Lifecycle Status"},
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"In development", "date", "Internal: In Development From"}},
+					1: {0: {"Live", "date", "Internal: Live date"}},
+					2: {0: {"Phasing out", "date", "Internal: Phase Out From"}},
+					3: {0: {"Retirement", "date", "Internal: Retirement date"}},
+					4: {0: {"Lifecycle Status", "select", "Lifecycle Status"}},
 				},
 			},
 		},
@@ -1256,7 +1282,7 @@ func PacFields() modelFields {
 			"Title":                            widget.NewEntry(),
 			"Description":                      widget.NewMultiLineEntry(),
 			"Alias":                            widget.NewEntry(),
-			"Links":                            widget.NewEntry(),
+			"Links":                            widget.NewMultiLineEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
 			"GU::Review Bodies":                widget.NewEntry(),
 			"Vendor":                           widget.NewEntry(),
@@ -1266,7 +1292,6 @@ func PacFields() modelFields {
 			"Conditions & Restrictions":        widget.NewMultiLineEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"Categories":                widget.NewSelect([]string{}, func(bob string) {}),
 			"Application Type":          widget.NewSelect([]string{}, func(bob string) {}),
 			"Operational Importance":    widget.NewSelect([]string{}, func(bob string) {}),
 			"Deployment Method":         widget.NewSelect([]string{}, func(bob string) {}),
@@ -1281,6 +1306,10 @@ func PacFields() modelFields {
 			"Standards Class":                         widget.NewSelect([]string{}, func(bob string) {}),
 			"Lifecycle Status":                        widget.NewSelect([]string{}, func(bob string) {}),
 		},
+		radioValues: map[string]*widget.RadioGroup{},
+		checkValues: map[string]*widget.CheckGroup{
+			"Categories": widget.NewCheckGroup([]string{}, func(bob []string) {}),
+		},
 		dateValues: map[string]*widget.Entry{
 			"Internal: In Development From": widget.NewEntry(),
 			"Internal: Live date":           widget.NewEntry(),
@@ -1289,7 +1318,7 @@ func PacFields() modelFields {
 			"Date of Last Release":          widget.NewEntry(),
 			"Date of Next Release":          widget.NewEntry(),
 			"Vendor: Contained From":        widget.NewEntry(),
-			"Vendor: Out Of Support":        widget.NewEntry(),
+			"Vendor: Out of Support":        widget.NewEntry(),
 			"Standard Creation Date":        widget.NewEntry(),
 			"Last Standard Review Date":     widget.NewEntry(),
 			"Next Standard Review Date":     widget.NewEntry(),
@@ -1298,50 +1327,46 @@ func PacFields() modelFields {
 		sections: map[int]sectionStruct{
 			0: {
 				title: "Key attributes",
-				fields: map[int]fieldsStruct{
-					0:  {"Name", "string", "Title"},
-					1:  {"Description", "string", "Description"},
-					2:  {"Domain", "select", "GU::Domain"},
-					3:  {"Alias", "string", "Alias"},
-					4:  {"Links", "special", "Links"},
-					5:  {"Categories", "select", "Categories"},
-					6:  {"Owner (DS Area)", "select", "Owner"},
-					7:  {"Department (Requestor)", "string", "Department"},
-					8:  {"Solution classification", "select", "GU::Solution Classification"},
-					9:  {"Information security classification", "select", "GU::Information Security Classification"},
-					10: {"Vendor", "string", "Vendor"},
-					11: {"Supplier", "string", "Supplier"},
+				fields: map[int]map[int]fieldsStruct{
+					0:  {0: {"Name", "string", "Title"}},
+					1:  {0: {"Description", "string", "Description"}},
+					2:  {0: {"Domain", "select", "GU::Domain"}},
+					3:  {0: {"Alias", "string", "Alias"}},
+					4:  {0: {"Links", "string", "Links"}},
+					5:  {0: {"Categories", "check", "Categories"}},
+					6:  {0: {"Owner (DS Area)", "select", "Owner"}},
+					7:  {0: {"Department (Requestor)", "string", "Department"}},
+					8:  {0: {"Solution classification", "select", "GU::Solution Classification"}},
+					9:  {0: {"Information security classification", "select", "GU::Information Security Classification"}},
+					10: {0: {"Vendor", "string", "Vendor"}},
+					11: {0: {"Supplier", "string", "Supplier"}},
 				},
 			},
 			1: {
 				title: "Lifecycle & Roadmap",
-				fields: map[int]fieldsStruct{
-					0: {"Lifecycle Status", "select", "Lifecycle Status"},
-					1: {"Internal recommendation", "select", "Internal Recommendation"},
-					2: {"Date of Last Release", "date", "Date of Last Release"},
-					3: {"Date of Next Release", "date", "Date of Next Release"},
-					4: {"In development", "date", "Internal: In Development From"},
-					5: {"Live", "date", "Internal: Live date"},
-					6: {"Phasing out", "date", "Internal: Phase Out From"},
-					7: {"Retirement", "date", "Internal: Retirement date"},
-					8: {"Vendor Contained From", "date", "Vendor: Contained From"},
-					9: {"Vendor Out of Support", "date", "Vendor: Out Of Support"},
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"Lifecycle Status", "select", "Lifecycle Status"}},
+					1: {0: {"Internal recommendation", "select", "Internal Recommendation"}},
+					2: {0: {"Date of Last Release", "date", "Date of Last Release"},
+						1: {"Date of Next Release", "date", "Date of Next Release"}},
+					3: {0: {"In development", "date", "Internal: In Development From"}, 1: {"Live", "date", "Internal: Live date"}, 2: {"Phasing out", "date", "Internal: Phase Out From"}, 3: {"Retirement", "date", "Internal: Retirement date"}},
+					4: {0: {"Vendor Contained From", "date", "Vendor: Contained From"}, 1: {"Vendor Out of Support", "date", "Vendor: Out of Support"}},
 				},
 			},
 			2: {
 				title: "Standards & Usage",
-				fields: map[int]fieldsStruct{
-					0:  {"Standard Class", "select", "Standards Class"},
-					1:  {"Standard Creation Date", "date", "Standard Creation Date"},
-					2:  {"Last Standard Review Date", "date", "Last Standard Review Date"},
-					3:  {"Next Standard Review Date", "date", "Next Standard Review Date"},
-					4:  {"Standard Retire Date", "date", "Standard Retire Date"},
-					5:  {"Approved Usage", "string", "Approved Usage"},
-					6:  {"Conditions & Restrictions", "string", "Conditions & Restrictions"},
-					7:  {"Application Type", "select", "Application Type"},
-					8:  {"Operational Importance", "select", "Operational Importance"},
-					9:  {"Deployment Method", "select", "Deployment Method"},
-					10: {"Build", "select", "Build"},
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"Standard Class", "select", "Standards Class"}},
+					1: {0: {"Standard Creation Date", "date", "Standard Creation Date"},
+						1: {"Last Standard Review Date", "date", "Last Standard Review Date"},
+						2: {"Next Standard Review Date", "date", "Next Standard Review Date"},
+						3: {"Standard Retire Date", "date", "Standard Retire Date"}},
+					2: {0: {"Approved Usage", "string", "Approved Usage"}},
+					3: {0: {"Conditions & Restrictions", "string", "Conditions & Restrictions"}},
+					4: {0: {"Application Type", "select", "Application Type"}},
+					5: {0: {"Operational Importance", "select", "Operational Importance"}},
+					6: {0: {"Deployment Method", "select", "Deployment Method"}},
+					7: {0: {"Build", "select", "Build"}},
 				},
 			},
 		},

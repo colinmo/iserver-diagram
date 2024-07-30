@@ -131,6 +131,44 @@ func CreateDatePicker(dateToShow time.Time, owningDialog *dialog.Dialog, targetE
 	return calendarWidget
 }
 
+func CalendarEntry(date string, parent fyne.Window) *widget.Entry {
+	x := widget.NewEntry()
+	x.Text = date
+	x.ActionItem =
+		widget.NewButtonWithIcon(
+			"",
+			CalendarResource,
+			func() {
+				var deepdeep dialog.Dialog
+				deepdeep = dialog.NewCustom(
+					"Change date",
+					"Nevermind",
+					CreateDatePicker(
+						stringToDate(date),
+						&deepdeep,
+						x),
+					parent,
+				)
+				deepdeep.Show()
+			},
+		)
+	return x
+}
+
+func stringToDate(str string) time.Time {
+	if len(str) == 0 {
+		return time.Now()
+	}
+	str = strings.ReplaceAll(str, "/", "-")
+	dt, e := time.Parse("2006-01-02", str)
+	if e == nil {
+		return dt
+	} else {
+		fmt.Printf("Could not parse the date %s\n%v\n", str, e)
+	}
+	return time.Now()
+}
+
 var CalendarResource = fyne.NewStaticResource("calendar.svg", []byte(`<?xml version="1.0" encoding="utf-8"?>
 	<!-- Svg Vector Icons : http://www.onlinewebfonts.com/icon -->
 	<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
