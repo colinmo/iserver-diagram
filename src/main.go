@@ -111,8 +111,6 @@ func main() {
 						widget.NewToolbarAction(
 							theme.FileIcon(),
 							func() {
-								fmt.Print("Prompt for Object Type")
-								fmt.Print("Open edit window")
 								windowTitle := "New Physical Application Component"
 								var lookupWindow fyne.Window
 								var x bool
@@ -373,6 +371,9 @@ func ListRelationsToSelect(
 			allFields.checkValues[x.AttributeName].Selected = strings.Split(x.StringValue, ",")
 		case isDate(x.AttributeName):
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
+		default:
+			message := fmt.Sprintf("Don't know who %s is\n", x.AttributeName)
+			fyne.LogError(message, fmt.Errorf(message))
 		}
 	}
 	knownKids := map[widget.TreeNodeID][]widget.TreeNodeID{}
@@ -1213,7 +1214,6 @@ func PtcFields() modelFields {
 			"Title":                            widget.NewEntry(),
 			"Description":                      widget.NewMultiLineEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
-			"GU::Review Bodies":                widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
 			"Department":                       widget.NewEntry(),
 		},
@@ -1258,7 +1258,6 @@ func PtcFields() modelFields {
 					0: {0: {"Information Security classification", "select", "GU::Information Security Classification"}},
 					1: {0: {"Solution classification", "select", "GU::Solution Classification"}},
 					2: {0: {"Visible in applist", "select", "GU::Object Visibility"}},
-					3: {0: {"Review", "string", "GU::Review Bodies"}},
 					4: {0: {"Internal recommendation", "select", "Internal Recommendation"}},
 					5: {0: {"Operational importance", "select", "Operational Importance"}},
 				},
@@ -1285,11 +1284,11 @@ func PacFields() modelFields {
 			"Alias":                            widget.NewEntry(),
 			"Links":                            widget.NewMultiLineEntry(),
 			"GU::Information System Custodian": widget.NewEntry(),
-			"GU::Review Bodies":                widget.NewEntry(),
 			"Vendor":                           widget.NewEntry(),
 			"Supplier":                         widget.NewEntry(),
 			"Department":                       widget.NewEntry(),
 			"Approved Usage":                   widget.NewMultiLineEntry(),
+			"Serviceability characteristics":   widget.NewEntry(),
 			"Conditions & Restrictions":        widget.NewMultiLineEntry(),
 		},
 		selectValues: map[string]*widget.Select{
@@ -1352,12 +1351,13 @@ func PacFields() modelFields {
 						1: {"Date of Next Release", "date", "Date of Next Release"}},
 					3: {0: {"In development", "date", "Internal: In Development From"}, 1: {"Live", "date", "Internal: Live date"}, 2: {"Phasing out", "date", "Internal: Phase Out From"}, 3: {"Retirement", "date", "Internal: Retirement date"}},
 					4: {0: {"Vendor Contained From", "date", "Vendor: Contained From"}, 1: {"Vendor Out of Support", "date", "Vendor: Out of Support"}},
+					5: {0: {"Serviceability characteristics", "string", "Serviceability characteristics"}},
 				},
 			},
 			2: {
 				title: "Standards & Usage",
 				fields: map[int]map[int]fieldsStruct{
-					0: {0: {"Standard Class", "select", "Standards Class"}},
+					0: {0: {"Standards Class", "select", "Standards Class"}},
 					1: {0: {"Standard Creation Date", "date", "Standard Creation Date"},
 						1: {"Last Standard Review Date", "date", "Last Standard Review Date"},
 						2: {"Next Standard Review Date", "date", "Next Standard Review Date"},

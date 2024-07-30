@@ -118,7 +118,7 @@ var ImportantFields = map[string][]string{
 		"Vendor: Contained From",
 		"Vendor: Out of Support",
 
-		"Standard Class",
+		"Standards Class",
 		"Standard Creation Date",
 		"Last Standard Review Date",
 		"Next Standard Review Date",
@@ -217,7 +217,6 @@ func (a *AzureAuth) SaveObjectFields(
 	case "Logical Application Component":
 		saveValues.ObjectTypeId = "7cb624e4-b642-ea11-a601-28187852aafd"
 	}
-	fmt.Printf("Date values %v\n", dateValues)
 	// Name is special
 	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 		AttributeName:     "Name",
