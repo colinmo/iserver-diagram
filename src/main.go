@@ -369,6 +369,7 @@ func ListRelationsToSelect(
 				keys,
 				func(bob []string) {},
 			)
+			allFields.checkValues[x.AttributeName].Horizontal = true
 			allFields.checkValues[x.AttributeName].Selected = strings.Split(x.StringValue, ",")
 		case isDate(x.AttributeName):
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
