@@ -6,6 +6,14 @@ SetDefaultLegendEntries("")
 !$TECHN_FONT_SIZE = 8
 skinparam linetype ortho
 
+!function $getBoundary($label, $techn, $descr, $sprite)
+!$line = '=== <size:' + $TECHN_FONT_SIZE + '>' + $getSprite($smallVersionSprite($sprite, $BOUNDARY_IMAGE_SIZE_FACTOR)) + $techn + "</size>\n----\n== " + $breakLabel($label)
+!if ($descr != "")
+!$line = $line + '\n' + $breakDescr($descr, $BOUNDARY_DESCR_MAX_CHAR_WIDTH)
+!endif
+!return $line
+!endfunction
+
 UpdateBoundaryStyle("", $borderThickness=2, $borderStyle="solid", $fontColor="#000000", $borderColor="#000000")
 UpdateBoundaryStyle("loc", $bgColor=#E0E0E0, $sprite="loc", $type="Location")
 UpdateBoundaryStyle("pac", $bgColor=#BFCFE2, $sprite="pac", $type="Physical application component")
@@ -20,14 +28,6 @@ LAYOUT_LANDSCAPE()
 LAYOUT_TOP_DOWN()
 hide stereotype
 !$TECHN_FONT_SIZE = 10
-
-!function $getBoundary($label, $techn, $descr, $sprite)
-!$line = '=== <size:' + $TECHN_FONT_SIZE + '>' + $getSprite($smallVersionSprite($sprite, $BOUNDARY_IMAGE_SIZE_FACTOR)) + $techn + "</size>\n----\n== " + $breakLabel($label)
-!if ($descr != "")
-!$line = $line + '\n' + $breakDescr($descr, $BOUNDARY_DESCR_MAX_CHAR_WIDTH)
-!endif
-!return $line
-!endfunction
 
 sprite $req [41x41/8] {
     00000000000000000000000000000000000000000
