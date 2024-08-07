@@ -72,8 +72,14 @@ func main() {
 			dept.Refresh()
 		}()
 	}
-	mainWindow := myApp.NewWindow("Loading")
+	mainWindow := myApp.NewWindow("von iServer")
 	mainWindow.Resize(fyne.NewSize(600, 600))
+	mainWindow.SetCloseIntercept(func() {
+		fmt.Printf("Len: %d\n", len(windows))
+		if len(windows) == 0 {
+			mainWindow.Close()
+		}
+	})
 	bottom := container.New(
 		layout.NewHBoxLayout(),
 		widget.NewLabelWithData(status),
@@ -214,6 +220,15 @@ func newPACTemplate(template modelFields) azure.IServerObjectStruct {
 		)
 	}
 	for name := range template.radioValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
+	for name := range template.checkValues {
 		azure.ValidChoices[name] = az.GetChoicesForName(name)
 		newObject.AttributeValues = append(
 			newObject.AttributeValues,
@@ -462,7 +477,6 @@ func makeEditPage(allFields modelFields, relationshipWindow *fyne.Container, thi
 			for j := 0; j < len(row); j++ {
 				fld := row[j]
 				label := widget.NewLabelWithStyle(fld.label, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-				fmt.Printf("Adding " + fld.label + " (" + fld.fieldindex + ")\n")
 				switch fld.fieldindex {
 				case "string":
 					rowform.Objects = append(rowform.Objects, container.NewBorder(label, nil, nil, nil, allFields.stringValues[fld.valuesIndex]))
@@ -915,6 +929,7 @@ func createRelationshipWindow(
 											leadObject,
 											memberObject,
 										)
+										fmt.Printf("Saving %s\n", body)
 										mep, err := az.CallRestEndpoint(
 											"POST",
 											path,
@@ -1030,12 +1045,6 @@ func createRelationshipWindow(
 						),
 					)
 					addRelWindow.Show()
-					// Pop up window
-					// Get the valid type relations
-					// Fill the prompt for relationship type
-					// Search for an object of the type
-					// Save relationship
-					fmt.Printf("Add Relationship")
 				},
 			),
 			widget.NewToolbarAction(
@@ -1328,18 +1337,18 @@ func PacFields() modelFields {
 			0: {
 				title: "Key attributes",
 				fields: map[int]map[int]fieldsStruct{
-					0:  {0: {"Name", "string", "Title"}},
-					1:  {0: {"Description", "string", "Description"}},
-					2:  {0: {"Domain", "select", "GU::Domain"}},
-					3:  {0: {"Alias", "string", "Alias"}},
-					4:  {0: {"Links", "string", "Links"}},
-					5:  {0: {"Categories", "check", "Categories"}},
-					6:  {0: {"Owner (DS Area)", "select", "Owner"}},
-					7:  {0: {"Department (Requestor)", "string", "Department"}},
-					8:  {0: {"Solution classification", "select", "GU::Solution Classification"}},
-					9:  {0: {"Information security classification", "select", "GU::Information Security Classification"}},
-					10: {0: {"Vendor", "string", "Vendor"}},
-					11: {0: {"Supplier", "string", "Supplier"}},
+					0: {0: {"Name", "string", "Title"}},
+					1: {0: {"Description", "string", "Description"}},
+					2: {0: {"Domain", "select", "GU::Domain"}},
+					3: {0: {"Alias", "string", "Alias"}},
+					4: {0: {"Links", "string", "Links"}},
+					5: {0: {"Categories", "check", "Categories"}},
+					6: {0: {"Department (Requestor)", "string", "Department"},
+						1: {"Owner (DS Area)", "select", "Owner"}},
+					7: {0: {"Solution classification", "select", "GU::Solution Classification"},
+						1: {"Information security classification", "select", "GU::Information Security Classification"}},
+					8: {0: {"Vendor", "string", "Vendor"},
+						1: {"Supplier", "string", "Supplier"}},
 				},
 			},
 			1: {

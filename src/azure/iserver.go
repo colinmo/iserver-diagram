@@ -248,10 +248,12 @@ func (a *AzureAuth) SaveObjectFields(
 	// As is Categories
 	CategoryValues := []ValuesValue{}
 	for _, e := range strings.Split(selectValues["Categories"], ",") {
-		CategoryValues = append(CategoryValues, ValuesValue{
-			Value:                          e,
-			AttributeConfigurationChoiceId: ValidChoices["Categories"][e],
-		})
+		if len(e) > 0 {
+			CategoryValues = append(CategoryValues, ValuesValue{
+				Value:                          e,
+				AttributeConfigurationChoiceId: ValidChoices["Categories"][e],
+			})
+		}
 	}
 	saveValues.AttributeValues = append(saveValues.AttributeValues, SaveValue{
 		AttributeName:     "Categories",
@@ -307,12 +309,15 @@ func (a *AzureAuth) SaveObjectFields(
 			// Create
 			path := "/odata/Objects"
 			query := ``
-			mep, _ = a.CallRestEndpoint("POST", path, x, query)
+			mep, err = a.CallRestEndpoint("POST", path, x, query)
 		} else {
 			// Update
 			path := fmt.Sprintf("/odata/Objects(%s)", id)
 			query := ``
-			mep, _ = a.CallRestEndpoint("PATCH", path, x, query)
+			mep, err = a.CallRestEndpoint("PATCH", path, x, query)
+		}
+		if err != nil {
+			return false, fmt.Sprintf("Error communicating with endpoint %s", err.Error()), ""
 		}
 		defer mep.Close()
 		toReturn := struct {

@@ -428,7 +428,6 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 		}
 		for _, anObject := range oneCall.Value {
 			if unknownProductManager(anObject, owners) {
-				fmt.Printf("Adding %s\n", anObject.Name)
 				toReturn = append(toReturn, anObject)
 			}
 		}
