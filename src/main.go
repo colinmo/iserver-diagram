@@ -75,7 +75,6 @@ func main() {
 	mainWindow := myApp.NewWindow("von iServer")
 	mainWindow.Resize(fyne.NewSize(600, 600))
 	mainWindow.SetCloseIntercept(func() {
-		fmt.Printf("Len: %d\n", len(windows))
 		if len(windows) == 0 {
 			mainWindow.Close()
 		}
