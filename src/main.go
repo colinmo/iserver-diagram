@@ -99,8 +99,10 @@ func main() {
 			if x, _ := status.Get(); x == "Live" {
 				UpdateMessage("Searching...")
 				text, _ := searchEntry.Get()
-				az.FindMeThen(text, ListAndSelectAThing, &mainWindow)
-				UpdateMessage("Ready")
+				go func() {
+					az.FindMeThen(text, ListAndSelectAThing, &mainWindow)
+					UpdateMessage("Ready")
+				}()
 			} else {
 				UpdateMessage("Not ready")
 			}
@@ -280,7 +282,7 @@ func ListAndSelectAThing(things []azure.FindStruct, thenWindow *fyne.Window) {
 					var lookupWindow fyne.Window
 					var x bool
 					if lookupWindow, x = windows[windowTitle]; !x {
-						addWindowFor(windowTitle, 650, 650)
+						addWindowFor(windowTitle, 650, 920)
 						lookupWindow = windows[windowTitle]
 					}
 					UpdateMessage("Loading")
@@ -382,7 +384,13 @@ func ListRelationsToSelect(
 				func(bob []string) {},
 			)
 			allFields.checkValues[x.AttributeName].Horizontal = true
-			allFields.checkValues[x.AttributeName].Selected = strings.Split(x.StringValue, ",")
+			allFields.checkValues[x.AttributeName].Selected = []string{}
+			for _, elem := range strings.Split(x.StringValue, ",") {
+				allFields.checkValues[x.AttributeName].Selected = append(
+					allFields.checkValues[x.AttributeName].Selected,
+					strings.Trim(elem, " "),
+				)
+			}
 		case isDate(x.AttributeName):
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
 		default:
