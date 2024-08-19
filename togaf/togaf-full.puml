@@ -20,6 +20,8 @@ UpdateBoundaryStyle("pac", $bgColor=#BFCFE2, $sprite="pac", $type="Physical appl
 UpdateBoundaryStyle("pdc", $bgColor=#AB9AC0, $sprite="pdc", $type="Physical data component")
 UpdateBoundaryStyle("lac", $bgColor=#96AFCF, $sprite="lac", $type="Logical application component")
 UpdateBoundaryStyle("ptc", $bgColor=#A2D6A0, $sprite="ptc", $type="Physical technology component")
+UpdateBoundaryStyle("ltc", $bgColor=#A2D6A0, $sprite="ltc", $type="Logical technology component")
+
 UpdateBoundaryStyle("act", $bgColor=#F5EDDC, $sprite="act", $type="Actor")
 UpdateBoundaryStyle("org", $bgColor=#FFD784, $sprite="org", $type="Organization")
 UpdateBoundaryStyle("cap", $bgColor=#FFD784, $sprite="cap", $type="Capability")
