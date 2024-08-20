@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	fyne "fyne.io/fyne/v2"
@@ -138,6 +138,7 @@ var ImportantFields = map[string][]string{
 // Focuses on PAC, PTC, and LAC
 func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWindow *fyne.Window) {
 	toReturn := []FindStruct{}
+	putInto(toReturn, thenWindow)
 
 	type objects struct {
 		Value    []FindStruct `json:"value"`
@@ -149,19 +150,7 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Alias'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component')`,
 		" ",
 		"%20")
-	var wg sync.WaitGroup
-	appendqueue := make(chan FindStruct)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// Receive values until dataCh is
-		// closed and the value buffer queue
-		// of dataCh becomes empty.
-		for value := range appendqueue {
-			toReturn = append(toReturn, value)
-			putInto(toReturn, thenWindow)
-		}
-	}()
+
 	for {
 		var oneCall objects
 		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
@@ -176,14 +165,17 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 			log.Fatalf("failed to read io.Reader %v\n", err)
 		}
 		lookingFor := strings.ToLower(lookFor)
-		go func() {
-			for _, el := range oneCall.Value {
-				if strings.Contains(strings.ToLower(el.Name), lookingFor) || (len(el.AttributeValues) > 0 && strings.Contains(strings.ToLower(el.AttributeValues[0].StringValue), lookingFor)) {
-					appendqueue <- el
-				}
+		for _, el := range oneCall.Value {
+			if strings.Contains(strings.ToLower(el.Name), lookingFor) ||
+				(len(el.AttributeValues) > 0 &&
+					strings.Contains(strings.ToLower(el.AttributeValues[0].StringValue), lookingFor)) {
+				toReturn = append(toReturn, el)
 			}
-		}()
-		// toReturn = append(toReturn, oneCall.Value...)
+		}
+		sort.Slice(toReturn, func(i, j int) bool {
+			return strings.Compare(strings.ToLower(toReturn[i].Name), strings.ToLower(toReturn[j].Name)) < 0
+		})
+		putInto(toReturn, thenWindow)
 		if len(oneCall.NextLink) == 0 {
 			break
 		}
@@ -196,8 +188,6 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 		query = bits.RawQuery
 		time.Sleep(100 * time.Millisecond)
 	}
-	close(appendqueue)
-	wg.Wait()
 }
 
 func (a *AzureAuth) GetImportantFields(id, typeofobject string) IServerObjectStruct {
