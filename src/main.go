@@ -116,7 +116,7 @@ func main() {
 				container.NewBorder(
 					widget.NewToolbar(
 						widget.NewToolbarAction(
-							theme.FileIcon(),
+							resourcePacPng,
 							func() {
 								windowTitle := "New Physical Application Component"
 								var lookupWindow fyne.Window
@@ -126,6 +126,24 @@ func main() {
 									lookupWindow = windows[windowTitle]
 								}
 								def := newPACTemplate(PacFields())
+								UpdateMessage("Loading")
+								lookupWindow.Show()
+								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
+								windows[windowTitle] = lookupWindow
+								ListRelationsToSelect(def, []azure.RelationStruct{}, &lookupWindow)
+							},
+						),
+						widget.NewToolbarAction(
+							resourcePtcPng,
+							func() {
+								windowTitle := "New Physical Technology Component"
+								var lookupWindow fyne.Window
+								var x bool
+								if lookupWindow, x = windows[windowTitle]; !x {
+									addWindowFor(windowTitle, 650, 850)
+									lookupWindow = windows[windowTitle]
+								}
+								def := newPTCTemplate(PtcFields())
 								UpdateMessage("Loading")
 								lookupWindow.Show()
 								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
@@ -210,6 +228,48 @@ func newPACTemplate(template modelFields) azure.IServerObjectStruct {
 			Name string `json:"Name"`
 			Id   string `json:"ObjectTypeId"`
 		}{Name: "Physical Application Component"},
+	}
+	for name := range template.selectValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
+	for name := range template.radioValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
+	for name := range template.checkValues {
+		azure.ValidChoices[name] = az.GetChoicesForName(name)
+		newObject.AttributeValues = append(
+			newObject.AttributeValues,
+			azure.AttributeValue{
+				AttributeName: name,
+			},
+		)
+	}
+	return newObject
+}
+
+func newPTCTemplate(template modelFields) azure.IServerObjectStruct {
+	newObject := azure.IServerObjectStruct{
+		Name:     "",
+		ObjectId: "",
+		AttributeValues: []azure.AttributeValue{
+			{StringValue: "", AttributeName: "Owner"},
+		},
+		ObjectType: struct {
+			Name string `json:"Name"`
+			Id   string `json:"ObjectTypeId"`
+		}{Name: "Physical Technology Component"},
 	}
 	for name := range template.selectValues {
 		azure.ValidChoices[name] = az.GetChoicesForName(name)
