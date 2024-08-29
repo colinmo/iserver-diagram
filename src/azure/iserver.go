@@ -409,6 +409,17 @@ func (a *AzureAuth) FindRelationsThen(id string, typeofobject string, putInto la
 	putInto(a.GetImportantFields(id, typeofobject), a.FindRelations(id), thenWindow)
 }
 
+func (a *AzureAuth) DeleteRelations(ids []string) []error {
+	errors := []error{}
+	for _, relid := range ids {
+		err := a.DeleteARelationship(relid)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return errors
+}
+
 func (a *AzureAuth) GetProductManagersThen(department string, putInto laterStringList, thenWindow *fyne.Window) {
 	toReturn := map[string][]string{}
 

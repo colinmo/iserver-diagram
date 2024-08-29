@@ -977,7 +977,6 @@ func createRelationshipWindow(
 										leadObject := basics.ObjectId
 										memberObject := objectSelectList[objectSelect.Text]
 										if basics.ObjectType.Id != relationshipTypesList[relationshipSelect.Text].leadobjecttypeid {
-											fmt.Printf("SWAPPING %s %s", basics.ObjectType.Id, relationshipTypesList[relationshipSelect.Text].leadobjecttypeid)
 											leadObject = objectSelectList[objectSelect.Text]
 											memberObject = basics.ObjectId
 
@@ -996,7 +995,6 @@ func createRelationshipWindow(
 											leadObject,
 											memberObject,
 										)
-										fmt.Printf("Saving %s\n", body)
 										mep, err := az.CallRestEndpoint(
 											"POST",
 											path,
@@ -1125,14 +1123,22 @@ func createRelationshipWindow(
 							if !ok {
 								return
 							}
-							// If yes, delete
+
+							errors := []string{}
 							for _, x := range selectedRelations {
-								fmt.Printf("Deleting relationship %s\n", x.RelationshipId)
+								err := az.DeleteARelationship(x.RelationshipId)
+								if err != nil {
+									errors = append(errors, err.Error())
+								}
+							}
+							if len(errors) == 0 {
+								dialog.ShowInformation("Successful deletion", "", *thenWindow)
+							} else {
+								dialog.ShowError(fmt.Errorf("the following messages were returned from the endpoint:\n"+strings.Join(errors, "\n")), *thenWindow)
 							}
 						},
 						*thenWindow,
 					)
-					fmt.Printf("Remove Relationship(s)")
 				},
 			),
 			widget.NewToolbarAction(
@@ -1149,6 +1155,9 @@ func createRelationshipWindow(
 								return
 							}
 							fileName := filepath.Join(getSavePath(), filepath.Base(filename.Text))
+							if len(fileName) < 5 || fileName[len(fileName)-5:] != "puml" {
+								fileName = fileName + ".puml"
+							}
 							fo, err := os.Create(fileName)
 							if err != nil {
 								panic(err)

@@ -501,3 +501,37 @@ func (a *AzureAuth) GetRelationTypesForObjectType(objectTypeId1, objectTypeId2 s
 	}
 	return toReturn
 }
+
+func (a *AzureAuth) DeleteARelationship(id string) error {
+	var err error
+	var mep io.ReadCloser
+	path := fmt.Sprintf("/odata/Relationships(%s)", id)
+	mep, err = a.CallRestEndpoint("DELETE", path, []byte{}, "")
+	if err == nil {
+		defer mep.Close()
+		var bytemep []byte
+		var messageResponse ODataResponse
+		bytemep, err = io.ReadAll(mep)
+		json.Unmarshal(bytemep, &messageResponse)
+		if !messageResponse.Success {
+			return fmt.Errorf(messageResponse.SuccessMessage.MessageCode)
+		}
+		return err
+	}
+	return err
+}
+
+type ODataMessage struct {
+	MessageCategory   string `json:"messageCategory"`
+	MessageCode       string `json:"messageCode"`
+	MessageDefinition struct {
+		DeletedRelationshipID string `json:"deletedRelationshipId"`
+	} `json:"messageDefinition"`
+}
+type ODataResponse struct {
+	OperationType  string         `json:"operationType"`
+	EntityTypes    string         `json:"entityTypes"`
+	SuccessMessage ODataMessage   `json:"successMessage"`
+	Success        bool           `json:"success"`
+	Messages       []ODataMessage `json:"messages"`
+}
