@@ -138,6 +138,7 @@ var ImportantFields = map[string][]string{
 // Focuses on PAC, PTC, and LAC
 func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWindow *fyne.Window) {
 	toReturn := []FindStruct{}
+	founds := map[string]bool{}
 	putInto(toReturn, thenWindow)
 
 	type objects struct {
@@ -146,47 +147,57 @@ func (a *AzureAuth) FindMeThen(lookFor string, putInto laterLongUpdate, thenWind
 	}
 
 	path := "/odata/Objects"
-	query := strings.ReplaceAll(
-		`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Alias'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component')`,
-		" ",
-		"%20")
-
-	for {
-		var oneCall objects
-		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
-		if err != nil {
-			log.Fatalf("failed to call endpoint %v\n", err)
-		}
-		defer mep.Close()
-		bytemep, err := io.ReadAll(mep)
-		json.Unmarshal(bytemep, &oneCall)
-
-		if err != nil {
-			log.Fatalf("failed to read io.Reader %v\n", err)
-		}
-		lookingFor := strings.ToLower(lookFor)
-		for _, el := range oneCall.Value {
-			if strings.Contains(strings.ToLower(el.Name), lookingFor) ||
-				(len(el.AttributeValues) > 0 &&
-					strings.Contains(strings.ToLower(el.AttributeValues[0].StringValue), lookingFor)) {
-				toReturn = append(toReturn, el)
+	for _, query := range []string{
+		strings.ReplaceAll(
+			fmt.Sprintf(
+				`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Alias'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component') and contains(Name, '%s')`,
+				lookFor,
+			),
+			" ",
+			"%20"),
+		strings.ReplaceAll(
+			fmt.Sprintf(
+				`$expand=ObjectType($select=Name),AttributeValues($select=StringValue,AttributeName;$filter=AttributeName in ('Alias'))&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Physical Technology Component','Logical Application Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueText/any(a:a/AttributeName in ('Alias','Description') and contains(a/Value,'%s'))`,
+				lookFor,
+			),
+			" ",
+			"%20"),
+	} {
+		for {
+			var oneCall objects
+			mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+			if err != nil {
+				log.Fatalf("failed to call endpoint %v\n", err)
 			}
+			defer mep.Close()
+			bytemep, err := io.ReadAll(mep)
+			json.Unmarshal(bytemep, &oneCall)
+
+			if err != nil {
+				log.Fatalf("failed to read io.Reader %v\n", err)
+			}
+			for _, el := range oneCall.Value {
+				if _, ok := founds[el.ObjectId]; !ok {
+					founds[el.ObjectId] = true
+					toReturn = append(toReturn, el)
+				}
+			}
+			sort.Slice(toReturn, func(i, j int) bool {
+				return strings.Compare(strings.ToLower(toReturn[i].Name), strings.ToLower(toReturn[j].Name)) < 0
+			})
+			putInto(toReturn, thenWindow)
+			if len(oneCall.NextLink) == 0 {
+				break
+			}
+			bits, err := url.Parse(oneCall.NextLink)
+			if err != nil {
+				log.Printf("Failed to parse next")
+				break
+			}
+			path = bits.Path
+			query = bits.RawQuery
+			time.Sleep(100 * time.Millisecond)
 		}
-		sort.Slice(toReturn, func(i, j int) bool {
-			return strings.Compare(strings.ToLower(toReturn[i].Name), strings.ToLower(toReturn[j].Name)) < 0
-		})
-		putInto(toReturn, thenWindow)
-		if len(oneCall.NextLink) == 0 {
-			break
-		}
-		bits, err := url.Parse(oneCall.NextLink)
-		if err != nil {
-			log.Printf("Failed to parse next")
-			break
-		}
-		path = bits.Path
-		query = bits.RawQuery
-		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -313,7 +324,6 @@ func (a *AzureAuth) SaveObjectFields(
 
 	}
 	x, err := json.Marshal(saveValues)
-	fmt.Printf("Saving as %s\n", string(x))
 	if err == nil {
 		var mep io.ReadCloser
 		if id == "" {
