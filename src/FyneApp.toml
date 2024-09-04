@@ -1,8 +1,8 @@
 Website = "https://vonexplaino.com"
 
 [Details]
-  Icon = "../Icon.png"
+  Icon = "Icon.png"
   Name = "iServer Lookup"
   ID = "com.vonexplaino.iserverlookup"
   Version = "1.0.0"
-  Build = 25
+  Build = 38

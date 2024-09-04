@@ -119,6 +119,8 @@ var ImportantFields = map[string][]string{
 		"Internal: Retirement Date",
 		"Vendor: Contained From",
 		"Vendor: Out of Support",
+		"Update Schedule",
+		"Vendor Release Details",
 
 		"Standards Class",
 		"Standard Creation Date",
@@ -128,9 +130,28 @@ var ImportantFields = map[string][]string{
 		"Approved Usage",
 		"Conditions & Restrictions",
 
-		"GU::Managed Outside Of DS",
+		"GU::Managed outside of DS",
 		"GU::Object Visibility",
 		"Serviceability characteristics",
+	},
+	"PTC": {
+		"Title",
+		"Description",
+		"GU::Information System Custodian",
+		"Supplier",
+		"Department",
+		"Owner",
+		"GU::Domain",
+		"GU::Information Security Classification",
+		"GU::Solution Classification",
+		"GU::Object Visibility",
+		"Lifecycle Status",
+		"Internal Recommendation",
+		"Operational Importance",
+		"Internal: In Development From",
+		"Internal: Live date",
+		"Internal: Phase Out From",
+		"Internal: Retirement date",
 	},
 }
 
@@ -415,7 +436,7 @@ func (a *AzureAuth) FindRelations(id string) []RelationStruct {
 	return toReturn
 }
 
-func (a *AzureAuth) FindRelationsThen(id string, typeofobject string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
+func (a *AzureAuth) FindRelationsThen(id, typeofobject string, putInto laterRelationUpdate, thenWindow *fyne.Window) {
 	putInto(a.GetImportantFields(id, typeofobject), a.FindRelations(id), thenWindow)
 }
 

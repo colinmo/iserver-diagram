@@ -1,0 +1,27 @@
+<svg height="24" width="24" version="1.1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+    xmlns:svg="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="horizontalPipe" x2="1" y2="0">
+            <stop offset="0" stop-color="black" stop-opacity="1" id="stop1" />
+            <stop offset="0.1" stop-color="black" stop-opacity="0.1" id="stop2" />
+            <stop offset="0.25" stop-color="black" stop-opacity="0.3" id="stop3" />
+            <stop offset="0.75" stop-color="black" stop-opacity="0.2" id="stop4" />
+            <stop offset="0.9" stop-color="black" stop-opacity="0.1" id="stop5" />
+            <stop offset="1" stop-color="black" stop-opacity="1" id="stop6" />
+        </linearGradient>
+        <linearGradient id="horizontalPipe2" x2="1" y2="0">
+            <stop offset="0" stop-color="black" stop-opacity="1" id="stop7" />
+            <stop offset="0.1" stop-color="black" stop-opacity="0.9" id="stop8" />
+            <stop offset="0.25" stop-color="black" stop-opacity="1" id="stop9" />
+            <stop offset="0.75" stop-color="black" stop-opacity="1" id="stop10" />
+            <stop offset="0.9" stop-color="black" stop-opacity="0.9" id="stop11" />
+            <stop offset="1" stop-color="black" stop-opacity="1" id="stop12" />
+        </linearGradient>
+    </defs>
+    <path fill="none" stroke-width="3.20001" stroke="url(#horizontalPipe)"
+        d="m 12,12 l-2.00002,-1.40002 a 3.8000328,2.6000246 1 1 0 0,2.80004 l 5.00004,-3.80004 a 3.8000328,2.6000246 1 1 1 0,3.80004 l-2,-1.4"
+        style="stroke:url(#horizontalPipe)" />
+    <path fill="none" stroke-width="3.20001" stroke="url(#horizontalPipe2)" stroke-linecap="blunt"
+        d="M 3,12 a 3.8000328,2.6000246 1 0 0 6.40006,1.80004 l 5.00004,-3.80004 a 3.8000328,2.6000246 1 0 1 6.90006,1.80004"
+        id="path13" style="stroke:url(#horizontalPipe2)" />
+</svg>

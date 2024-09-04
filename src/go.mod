@@ -1,6 +1,8 @@
 module vonexplaino.com/m/v2/vondiagram
 
-go 1.20
+go 1.21
+
+toolchain go1.22.6
 
 require (
 	fyne.io/fyne/v2 v2.5.0

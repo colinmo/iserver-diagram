@@ -1,3 +1,10 @@
+//go:generate fyne bundle -o bundled.go ../assets/lac.png
+//go:generate fyne bundle -o bundled.go -append ../assets/pac.png
+//go:generate fyne bundle -o bundled.go -append ../assets/ptc.png
+//go:generate fyne bundle -o bundled.go -append ../assets/view-iserver.png
+//go:generate fyne bundle -o bundled.go -append ../assets/view-iserver2.png
+//go:generate fyne bundle -o bundled.go -append ../assets/iserver2.svg
+
 package main
 
 import (
@@ -33,6 +40,7 @@ var az azure.AzureAuth
 var centreContent *fyne.Container
 var myApp fyne.App
 var windows map[string]fyne.Window
+var editWindowWidth, editWindowHeight float32
 
 type objectStruct struct {
 	alias    string
@@ -47,6 +55,36 @@ type relationshipStruct struct {
 	relationshipName string
 }
 
+func connectToAzure(dept *widget.Select) {
+	UpdateStatus("Connecting")
+	if myApp.Preferences().StringWithFallback("Department", "nope") == "nope" {
+		UpdateMessage("Update settings")
+	} else {
+		UpdateMessage("")
+	}
+	az.StartAzure()
+	UpdateStatus("Live")
+	keys := getMapStringKeys(az.GetChoicesForName("GU::Domain"))
+	sort.Strings(keys)
+	dept.Options = keys
+	dept.SetSelected(myApp.Preferences().StringWithFallback("Department", "Unknown"))
+	dept.Refresh()
+}
+
+func createEditWindow(windowTitle string, def azure.IServerObjectStruct, rels []azure.RelationStruct) {
+	var lookupWindow fyne.Window
+	var x bool
+	if lookupWindow, x = windows[windowTitle]; !x {
+		addWindowFor(windowTitle, editWindowWidth, editWindowHeight)
+		lookupWindow = windows[windowTitle]
+	}
+	UpdateMessage("Loading")
+	lookupWindow.Show()
+	lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
+	windows[windowTitle] = lookupWindow
+	ListRelationsToSelect(def, rels, &lookupWindow)
+}
+
 func main() {
 	// Basic window setup
 	windows = make(map[string]fyne.Window)
@@ -54,24 +92,11 @@ func main() {
 	status = binding.NewString()
 	messages = binding.NewString()
 	dept := widget.NewSelect([]string{}, func(change string) {})
-	if myApp.Preferences().StringWithFallback("Department", "nope") == "nope" {
-		UpdateStatus("Offline")
-		UpdateMessage("Update settings")
-	} else {
-		// In background, start logging in
-		go func() {
-			UpdateStatus("Loading")
-			UpdateMessage("Waiting")
-			az.StartAzure()
-			UpdateStatus("Live")
-			UpdateMessage("Ready")
-			keys := getMapStringKeys(az.GetChoicesForName("GU::Domain"))
-			sort.Strings(keys)
-			dept.Options = keys
-			dept.SetSelected(myApp.Preferences().StringWithFallback("Department", "Unknown"))
-			dept.Refresh()
-		}()
-	}
+	editWindowWidth = 650
+	editWindowHeight = 920
+
+	// In background, start logging in
+	go connectToAzure(dept)
 	mainWindow := myApp.NewWindow("von iServer")
 	mainWindow.Resize(fyne.NewSize(600, 600))
 	mainWindow.SetCloseIntercept(func() {
@@ -87,12 +112,7 @@ func main() {
 	)
 	searchEntry := binding.NewString()
 	centreContent = container.NewStack()
-	// Settings
-	pms := widget.NewMultiLineEntry()
-	pms.SetText(myApp.Preferences().StringWithFallback("ProductManagers", "[]"))
-	pms.SetMinRowsVisible(7)
-	savepath := widget.NewEntry()
-	savepath.SetText(myApp.Preferences().StringWithFallback("SavePath", ""))
+
 	searchButton := widget.NewButton(
 		"Go",
 		func() {
@@ -114,44 +134,54 @@ func main() {
 			"Diagrams",
 			container.NewBorder(
 				container.NewBorder(
-					widget.NewToolbar(
-						widget.NewToolbarAction(
+					container.NewHBox(
+						widget.NewButtonWithIcon(
+							"+PAC",
 							resourcePacPng,
 							func() {
-								windowTitle := "New Physical Application Component"
-								var lookupWindow fyne.Window
-								var x bool
-								if lookupWindow, x = windows[windowTitle]; !x {
-									addWindowFor(windowTitle, 650, 850)
-									lookupWindow = windows[windowTitle]
-								}
-								def := newPACTemplate(PacFields())
-								UpdateMessage("Loading")
-								lookupWindow.Show()
-								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
-								windows[windowTitle] = lookupWindow
-								ListRelationsToSelect(def, []azure.RelationStruct{}, &lookupWindow)
+								createEditWindow(
+									"New Physical Application Component",
+									newPACTemplate(PacFields()),
+									[]azure.RelationStruct{},
+								)
 							},
 						),
-						widget.NewToolbarAction(
+						widget.NewButtonWithIcon(
+							"+PTC",
 							resourcePtcPng,
 							func() {
-								windowTitle := "New Physical Technology Component"
-								var lookupWindow fyne.Window
-								var x bool
-								if lookupWindow, x = windows[windowTitle]; !x {
-									addWindowFor(windowTitle, 650, 850)
-									lookupWindow = windows[windowTitle]
-								}
-								def := newPTCTemplate(PtcFields())
-								UpdateMessage("Loading")
-								lookupWindow.Show()
-								lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
-								windows[windowTitle] = lookupWindow
-								ListRelationsToSelect(def, []azure.RelationStruct{}, &lookupWindow)
+								createEditWindow(
+									"New Physical Application Component",
+									newPTCTemplate(PtcFields()),
+									[]azure.RelationStruct{},
+								)
 							},
 						),
 					),
+					/*
+						widget.NewToolbar(
+							widget.NewToolbarAction(
+								resourcePacPng,
+								func() {
+									createEditWindow(
+										"New Physical Application Component",
+										newPACTemplate(PacFields()),
+										[]azure.RelationStruct{},
+									)
+								},
+							),
+							widget.NewToolbarAction(
+								resourcePtcPng,
+								func() {
+									createEditWindow(
+										"New Physical Application Component",
+										newPTCTemplate(PtcFields()),
+										[]azure.RelationStruct{},
+									)
+								},
+							),
+						),
+					*/
 					nil,
 					widget.NewLabel("Looking for"),
 					searchButton,
@@ -188,17 +218,7 @@ func main() {
 		container.NewTabItem(
 			"Settings",
 			container.NewVScroll(
-				container.NewVBox(
-					widget.NewForm(
-						widget.NewFormItem("Domains", dept),
-						widget.NewFormItem("Product Managers", pms),
-						widget.NewFormItem("Save path", savepath),
-					),
-					widget.NewButton("Save", func() {
-						myApp.Preferences().SetString("Department", dept.Selected)
-						myApp.Preferences().SetString("ProductManagers", PrettyJSONString(pms.Text))
-						myApp.Preferences().SetString("SavePath", savepath.Text)
-					})),
+				makeSettingsTab(dept),
 			)),
 	)
 	mainWindow.SetContent(
@@ -317,7 +337,7 @@ func ListAndSelectAThing(things []azure.FindStruct, thenWindow *fyne.Window) {
 		func() int { return len(things) },
 		func() fyne.CanvasObject {
 			return container.NewHBox(
-				widget.NewButtonWithIcon("Load", theme.ComputerIcon(), func() {}),
+				widget.NewButtonWithIcon("", theme.ComputerIcon(), func() {}),
 				widget.NewLabel("template"),
 			)
 		},
@@ -337,23 +357,20 @@ func ListAndSelectAThing(things []azure.FindStruct, thenWindow *fyne.Window) {
 				fmt.Printf("Dunno: %s\n", things[id].Type.Name)
 			}
 			me.OnTapped = func() {
-				if me.Text == "PAC" {
-					windowTitle := fmt.Sprintf("Details for %s", things[id].Name)
-					var lookupWindow fyne.Window
-					var x bool
-					if lookupWindow, x = windows[windowTitle]; !x {
-						addWindowFor(windowTitle, 650, 920)
-						lookupWindow = windows[windowTitle]
-					}
+				if map[string]bool{
+					"Physical Application Component": true,
+					"Physical Technology Component":  true,
+				}[things[id].Type.Name] {
 					UpdateMessage("Loading")
-					lookupWindow.Show()
-
-					lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
-					windows[windowTitle] = lookupWindow
-					az.FindRelationsThen(things[id].ObjectId, "PAC", ListRelationsToSelect, &lookupWindow)
+					createEditWindow(
+						fmt.Sprintf("Details for %s", things[id].Name),
+						az.GetImportantFields(things[id].ObjectId, me.Text),
+						az.FindRelations(things[id].ObjectId),
+					)
 					UpdateMessage("Ready")
 				} else {
-					dialog.ShowInformation("Nope", "Physical Application Containers only for now sorry", *thenWindow)
+					dialog.ShowInformation("Nope", fmt.Sprintf("I can't do %s yet", things[id].Type.Name), *thenWindow)
+
 				}
 			}
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(things[id].Name)
@@ -394,6 +411,8 @@ func ListRelationsToSelect(
 		allFields = PacFields()
 	case "Physical Technology Component":
 		allFields = PtcFields()
+	default:
+		allFields = GenFields()
 	}
 	allFields.stringValues["Description"].Wrapping = fyne.TextWrapWord
 	allFields.stringValues["Description"].SetMinRowsVisible(5)
@@ -473,7 +492,7 @@ func ListRelationsToSelect(
 	display := container.NewBorder(
 		widget.NewToolbar(
 			widget.NewToolbarAction(
-				theme.ComputerIcon(),
+				resourceViewIserver2Png,
 				func() {
 					openbrowser(fmt.Sprintf("https://griffith.iserver365.com/object/%s/details", basics.ObjectId))
 				},
@@ -588,7 +607,7 @@ func ShowDomainTree(things map[string][]azure.IServerObjectStruct, thenWindow fy
 			}
 			returning := []widget.TreeNodeID{}
 			for _, x := range things[tni] {
-				returning = append(returning, fmt.Sprintf("%s~%s", x.Name, x.ObjectId))
+				returning = append(returning, fmt.Sprintf("%s~%s~%s", x.Name, x.ObjectId, x.ObjectType.Name))
 			}
 			sort.Strings(returning)
 			return returning
@@ -621,7 +640,7 @@ func ShowDomainTree(things map[string][]azure.IServerObjectStruct, thenWindow fy
 					var lookupWindow fyne.Window
 					var x bool
 					if lookupWindow, x = windows[windowTitle]; !x {
-						addWindowFor(windowTitle, 650, 850)
+						addWindowFor(windowTitle, editWindowWidth, editWindowHeight)
 						lookupWindow = windows[windowTitle]
 					}
 					UpdateMessage("Loading")
@@ -629,7 +648,16 @@ func ShowDomainTree(things map[string][]azure.IServerObjectStruct, thenWindow fy
 
 					lookupWindow.SetContent(makeLookupWindow(widget.NewLabel("Loading...")))
 					windows[windowTitle] = lookupWindow
-					az.FindRelationsThen(meps[1], "GEN", ListRelationsToSelect, &lookupWindow)
+					objectType := "GEN"
+					switch meps[2] {
+					case "Physical Application Component":
+						objectType = "PAC"
+					case "Physical Technology Component":
+						objectType = "PTC"
+					default:
+						objectType = "GEN"
+					}
+					az.FindRelationsThen(meps[1], objectType, ListRelationsToSelect, &lookupWindow)
 					UpdateMessage("Ready")
 				}
 			}
@@ -811,442 +839,7 @@ func addToObjectStruct(allObjects *map[string]objectStruct, alias, name, ptype s
 	}
 }
 
-func addRelationship(
-	relationships *map[string]relationshipStruct,
-	objects *map[string]objectStruct,
-	leftAlias string,
-	leftObject azure.FindStruct,
-	rightAlias string,
-	rightObject azure.FindStruct,
-	relationshipId string,
-	connection string,
-) {
-	objectsRef := (*objects)
-	if leftObject.Type.Name == "Location" {
-		objectsRef[leftAlias].children[rightObject.ObjectId] = (*objects)[rightAlias]
-		delete(objectsRef, rightAlias)
-	} else if rightObject.Type.Name == "Location" {
-		objectsRef[rightAlias].children[leftObject.ObjectId] = (*objects)[leftAlias]
-		delete(objectsRef, leftAlias)
-	} else {
-		(*relationships)[relationshipId] = relationshipStruct{
-			leftAlias:        leftAlias,
-			rightAlias:       rightAlias,
-			relationshipName: connection,
-		}
-	}
-}
 
-func createRelationshipList(
-	selectedRelations map[string]azure.RelationStruct,
-	knownKids map[widget.TreeNodeID][]widget.TreeNodeID,
-	knownBits map[widget.TreeNodeID]azure.RelationStruct) *widget.Tree {
-	return widget.NewTree(
-		func(id widget.TreeNodeID) []widget.TreeNodeID {
-			y, x := knownKids[id]
-			if x {
-				return y
-			}
-			return []widget.TreeNodeID{}
-		},
-		func(id widget.TreeNodeID) bool {
-			_, here := knownKids[id]
-			return here
-		},
-		func(branch bool) fyne.CanvasObject {
-			return container.NewHBox(widget.NewCheck("Diag", func(value bool) {}))
-		},
-		func(id widget.TreeNodeID, branch bool, item fyne.CanvasObject) {
-			checkbox := &(item.(*fyne.Container).Objects[0])
-			(*checkbox).(*widget.Check).OnChanged = func(value bool) {
-				if value {
-					selectedRelations[knownBits[id].RelationshipId] = knownBits[id]
-					_, here := knownKids[knownBits[id].RelationshipId]
-					if !here {
-						go func() {
-							knownKids[knownBits[id].RelationshipId] = []widget.TreeNodeID{}
-							rels := append(az.FindRelations(knownBits[id].LeadObjectId), az.FindRelations(knownBits[id].MemberObjectId)...)
-							for _, x := range rels {
-								_, here2 := knownBits[x.RelationshipId]
-								if !here2 {
-									knownKids[knownBits[id].RelationshipId] = append(knownKids[knownBits[id].RelationshipId], x.RelationshipId)
-									knownBits[x.RelationshipId] = x
-								}
-							}
-						}()
-					}
-				} else {
-					delete(selectedRelations, knownBits[id].RelationshipId)
-				}
-			}
-			(*checkbox).(*widget.Check).Text = (fmt.Sprintf(
-				"%s %s %s",
-				knownBits[id].LeadObject.Name,
-				knownBits[id].RelationshipType.LeadToMemberDirection,
-				knownBits[id].MemberObject.Name,
-			))
-			_, x := selectedRelations[knownBits[id].RelationshipId]
-			(*checkbox).(*widget.Check).SetChecked(x)
-			(*checkbox).Refresh()
-		},
-	)
-}
-
-func createRelationshipWindow(
-	basics azure.IServerObjectStruct,
-	selectedRelations map[string]azure.RelationStruct,
-	knownKids map[widget.TreeNodeID][]widget.TreeNodeID,
-	knownBits map[widget.TreeNodeID]azure.RelationStruct,
-	thenWindow *fyne.Window) *fyne.Container {
-	relationshipList := createRelationshipList(
-		selectedRelations,
-		knownKids,
-		knownBits)
-	var returningContainer *fyne.Container
-	returningContainer = container.NewBorder(
-		widget.NewToolbar(
-			widget.NewToolbarAction(
-				theme.ContentAddIcon(),
-				func() {
-					addRelWindow := addWindowFor("Add Relationship", 500, 250)
-					objectType := widget.NewSelectEntry([]string{
-						"Actor",
-						"Application Service",
-						"Business Service",
-						"Capability",
-						"Constraint",
-						"Data Entity",
-						"Interface",
-						"Location",
-						"Logical Application Component",
-						"Logical Data Component",
-						"Logical Technology Component",
-						"Organization Unit",
-						"Physical Application Component",
-						"Physical Data Component",
-						"Physical Technology Component",
-						"Physical Technology Group",
-						"Principle",
-						"Process",
-						"Product",
-						"Requirement",
-						"Risk",
-						"Role",
-						"Technology Service",
-					})
-					objectTypesList := map[string]string{
-						"Actor":                          "445f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Application Service":            "bc5f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Business Service":               "73d7af8c-5e52-ea11-a94c-28187852a561",
-						"Capability":                     "265f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Constraint":                     "535f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Data Entity":                    "625f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Interface":                      "a3b624e4-b642-ea11-a601-28187852aafd",
-						"Location":                       "cb5f5bb2-2eef-e811-9f2b-00155d26bcf8",
-						"Logical Application Component":  "7cb624e4-b642-ea11-a601-28187852aafd",
-						"Logical Data Component":         "96b624e4-b642-ea11-a601-28187852aafd",
-						"Logical Technology Component":   "070714ec-b642-ea11-a601-28187852aafd",
-						"Organization Unit":              "b0b624e4-b642-ea11-a601-28187852aafd",
-						"Physical Application Component": "6fb624e4-b642-ea11-a601-28187852aafd",
-						"Physical Data Component":        "37395db8-2eef-e811-9f2b-00155d26bcf8",
-						"Physical Technology Component":  "140714ec-b642-ea11-a601-28187852aafd",
-						"Physical Technology Group":      "5171e716-436d-ee11-9942-00224895c2e5",
-						"Principle":                      "70395db8-2eef-e811-9f2b-00155d26bcf8",
-						"Process":                        "7f395db8-2eef-e811-9f2b-00155d26bcf8",
-						"Product":                        "8e395db8-2eef-e811-9f2b-00155d26bcf8",
-						"Requirement":                    "9d395db8-2eef-e811-9f2b-00155d26bcf8",
-						"Risk":                           "b65f6dbe-2eef-e811-9f2b-00155d26bcf8",
-						"Role":                           "243a5db8-2eef-e811-9f2b-00155d26bcf8",
-						"Technology Service":             "52395db8-2eef-e811-9f2b-00155d26bcf8",
-					}
-					relationshipSelect := widget.NewSelectEntry([]string{})
-					relationshipTypesList := map[string]struct {
-						id               string
-						typepair         string
-						leadobjecttypeid string
-					}{}
-					objectSelect := widget.NewSelectEntry([]string{})
-					objectSelectList := map[string]string{}
-					addRelWindow.SetContent(
-						container.NewBorder(
-							nil,
-							widget.NewToolbar(
-								widget.NewToolbarAction(
-									theme.DocumentSaveIcon(),
-									func() {
-										leadObject := basics.ObjectId
-										memberObject := objectSelectList[objectSelect.Text]
-										if basics.ObjectType.Id != relationshipTypesList[relationshipSelect.Text].leadobjecttypeid {
-											leadObject = objectSelectList[objectSelect.Text]
-											memberObject = basics.ObjectId
-
-										}
-										path := "/odata/Relationships"
-										query := ``
-										body := fmt.Sprintf(
-											`{"RelationshipTypeId":"%s",
-											"ModelId":"%s",
-											"RelationshipTypePairId":"%s",
-											"LeadModelItemId":"%s",
-											"MemberModelItemId":"%s"}`,
-											relationshipTypesList[relationshipSelect.Text].id,
-											azure.BaselineArchitectureModel,
-											relationshipTypesList[relationshipSelect.Text].typepair,
-											leadObject,
-											memberObject,
-										)
-										mep, err := az.CallRestEndpoint(
-											"POST",
-											path,
-											[]byte(body),
-											query)
-										if err != nil {
-											dialog.ShowInformation(
-												"Failed to save",
-												err.Error(),
-												*thenWindow,
-											)
-										} else {
-											_, err2 := io.ReadAll(mep)
-											if err2 != nil {
-												dialog.ShowInformation(
-													"Failed to save",
-													err2.Error(),
-													*thenWindow,
-												)
-											} else {
-												dialog.ShowInformation(
-													"Save success",
-													"",
-													*thenWindow,
-												)
-											}
-										}
-										addRelWindow.Close()
-									},
-								),
-								widget.NewToolbarAction(
-									theme.CancelIcon(),
-									func() {
-										addRelWindow.Close()
-									},
-								),
-							),
-							nil,
-							nil,
-							container.New(
-								layout.NewFormLayout(),
-								widget.NewLabel("Object type"),
-								container.NewBorder(
-									nil,
-									nil,
-									nil,
-									widget.NewButtonWithIcon(
-										"",
-										theme.ListIcon(),
-										func() {
-											mike := az.GetRelationTypesForObjectType(
-												basics.ObjectType.Id,
-												objectTypesList[objectType.Text],
-											)
-											selects := []string{}
-											for id, obj := range mike {
-												relationshipTypesList[obj.Name] = struct {
-													id               string
-													typepair         string
-													leadobjecttypeid string
-												}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].LeadObjectTypeId}
-												selects = append(selects, obj.Name)
-											}
-											relationshipSelect.SetOptions(selects)
-										},
-									),
-									objectType,
-								),
-								widget.NewLabel("Relationship"),
-								relationshipSelect,
-
-								widget.NewLabel("With object"),
-								container.NewBorder(
-									nil,
-									nil,
-									nil,
-
-									widget.NewButtonWithIcon(
-										"",
-										theme.ListIcon(),
-										func() {
-											az.FindMeInTypeThen(
-												objectSelect.Text,
-												objectTypesList[objectType.Text],
-												func(finds []azure.FindStruct) {
-													returns := []string{}
-													objectSelectList = map[string]string{}
-													for _, x := range finds {
-														returns = append(returns, x.Name)
-														objectSelectList[x.Name] = x.ObjectId
-													}
-													objectSelect.SetOptions(returns)
-												})
-											mike := az.GetRelationTypesForObjectType(
-												basics.ObjectType.Id,
-												objectTypesList[objectType.Text],
-											)
-											selects := []string{}
-											for id, obj := range mike {
-												relationshipTypesList[obj.Name] = struct {
-													id               string
-													typepair         string
-													leadobjecttypeid string
-												}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].LeadObjectTypeId}
-												selects = append(selects, obj.Name)
-											}
-											relationshipSelect.SetOptions(selects)
-										},
-									),
-									objectSelect,
-								),
-							),
-						),
-					)
-					addRelWindow.Show()
-				},
-			),
-			widget.NewToolbarAction(
-				theme.ContentRemoveIcon(),
-				func() {
-					// Prompt for confirmation
-					dialog.ShowConfirm(
-						"Really delete?",
-						"Do you really want to delete the selected entries?",
-						func(ok bool) {
-							if !ok {
-								return
-							}
-
-							errors := []string{}
-							for _, x := range selectedRelations {
-								err := az.DeleteARelationship(x.RelationshipId)
-								if err != nil {
-									errors = append(errors, err.Error())
-								}
-							}
-							if len(errors) == 0 {
-								dialog.ShowInformation("Successful deletion", "", *thenWindow)
-							} else {
-								dialog.ShowError(fmt.Errorf("the following messages were returned from the endpoint:\n"+strings.Join(errors, "\n")), *thenWindow)
-							}
-						},
-						*thenWindow,
-					)
-				},
-			),
-			widget.NewToolbarAction(
-				theme.ColorPaletteIcon(),
-				func() {
-					filename := widget.NewEntry()
-					dialog.ShowForm(
-						"Save diagram",
-						"Save",
-						"Don't",
-						[]*widget.FormItem{widget.NewFormItem("Filename", filename)},
-						func(save bool) {
-							if !save {
-								return
-							}
-							fileName := filepath.Join(getSavePath(), filepath.Base(filename.Text))
-							if len(fileName) < 5 || fileName[len(fileName)-5:] != "puml" {
-								fileName = fileName + ".puml"
-							}
-							fo, err := os.Create(fileName)
-							if err != nil {
-								panic(err)
-							}
-							// close fo on exit and check for its returned error
-							defer func() {
-								if err := fo.Close(); err != nil {
-									panic(err)
-								}
-							}()
-							fo.WriteString(PlantUMLStart)
-							alreadyDrawn := map[string]string{}
-							alreadyDrawn = map[string]string{
-								basics.ObjectId: nameToToken(&alreadyDrawn, basics.Name),
-							}
-							relationships := map[string]relationshipStruct{}
-							objects := map[string]objectStruct{}
-							addToObjectStruct(&objects, alreadyDrawn[basics.ObjectId], basics.Name, "physical application component")
-							for _, x := range selectedRelations {
-								leftAlias := ""
-								rightAlias := ""
-								var y bool
-								if leftAlias, y = alreadyDrawn[x.LeadObjectId]; !y {
-									leftAlias = nameToToken(&alreadyDrawn, x.LeadObject.Name)
-									alreadyDrawn[x.LeadObjectId] = leftAlias
-									addToObjectStruct(&objects, alreadyDrawn[x.LeadObjectId], x.LeadObject.Name, x.LeadObject.Type.Name)
-								}
-								if rightAlias, y = alreadyDrawn[x.MemberObjectId]; !y {
-									rightAlias = nameToToken(&alreadyDrawn, x.MemberObject.Name)
-									alreadyDrawn[x.MemberObjectId] = rightAlias
-									addToObjectStruct(&objects, alreadyDrawn[x.MemberObjectId], x.MemberObject.Name, x.MemberObject.Type.Name)
-								}
-								addRelationship(
-									&relationships,
-									&objects,
-									leftAlias,
-									x.LeadObject,
-									rightAlias,
-									x.MemberObject,
-									x.RelationshipId,
-									x.RelationshipType.LeadToMemberDirection,
-								)
-							}
-							for _, x := range objects {
-								fo.WriteString(drawObject(x))
-							}
-							for _, x := range relationships {
-								fo.WriteString(
-									fmt.Sprintf(
-										"Rel(%s,%s,\"%s\")\n",
-										x.leftAlias,
-										x.rightAlias,
-										x.relationshipName,
-									))
-							}
-							fo.WriteString(PlantUMLEnd)
-							dialog.ShowInformation(
-								"Saved",
-								fmt.Sprintf("Saved the diagram to %s", fileName),
-								*thenWindow,
-							)
-						},
-						*thenWindow,
-					)
-				},
-			),
-			widget.NewToolbarAction(
-				theme.ViewRefreshIcon(),
-				func() {
-					rels := az.FindRelations(basics.ObjectId)
-					knownKids = map[widget.TreeNodeID][]widget.TreeNodeID{}
-					knownBits = map[widget.TreeNodeID]azure.RelationStruct{}
-					for _, x := range rels {
-						knownKids[""] = append(knownKids[""], x.RelationshipId)
-						knownBits[x.RelationshipId] = x
-					}
-					returningContainer.Objects[0] = createRelationshipList(
-						selectedRelations,
-						knownKids,
-						knownBits)
-				},
-			)),
-		nil,
-		nil,
-		container.NewGridWithColumns(1, widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel(""), widget.NewLabel("")),
-		relationshipList,
-	)
-	return returningContainer
-}
 
 var PlantUMLStart = "@startuml Solution Context\n!include https://raw.githubusercontent.com/colinmo/iserver-diagram/main/togaf/togaf-full.puml\n"
 var PlantUMLEnd = "@enduml"
@@ -1364,17 +957,18 @@ func PtcFields() modelFields {
 func PacFields() modelFields {
 	return modelFields{
 		stringValues: map[string]*widget.Entry{
-			"Title":                            widget.NewEntry(),
-			"Description":                      widget.NewMultiLineEntry(),
-			"Alias":                            widget.NewEntry(),
-			"Links":                            widget.NewMultiLineEntry(),
-			"GU::Information System Custodian": widget.NewEntry(),
-			"Vendor":                           widget.NewEntry(),
-			"Supplier":                         widget.NewEntry(),
-			"Department":                       widget.NewEntry(),
-			"Approved Usage":                   widget.NewMultiLineEntry(),
-			"Serviceability characteristics":   widget.NewEntry(),
-			"Conditions & Restrictions":        widget.NewMultiLineEntry(),
+			"Title":                          widget.NewEntry(),
+			"Description":                    widget.NewMultiLineEntry(),
+			"Alias":                          widget.NewEntry(),
+			"Links":                          widget.NewMultiLineEntry(),
+			"Vendor":                         widget.NewEntry(),
+			"Supplier":                       widget.NewEntry(),
+			"Department":                     widget.NewEntry(),
+			"Approved Usage":                 widget.NewMultiLineEntry(),
+			"Serviceability characteristics": widget.NewEntry(),
+			"Conditions & Restrictions":      widget.NewMultiLineEntry(),
+			"Update Schedule":                widget.NewEntry(),
+			"Vendor Release Details":         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
 			"Application Type":          widget.NewSelect([]string{}, func(bob string) {}),
@@ -1436,7 +1030,10 @@ func PacFields() modelFields {
 						1: {"Date of Next Release", "date", "Date of Next Release"}},
 					3: {0: {"In development", "date", "Internal: In Development From"}, 1: {"Live", "date", "Internal: Live date"}, 2: {"Phasing out", "date", "Internal: Phase Out From"}, 3: {"Retirement", "date", "Internal: Retirement date"}},
 					4: {0: {"Vendor Contained From", "date", "Vendor: Contained From"}, 1: {"Vendor Out of Support", "date", "Vendor: Out of Support"}},
-					5: {0: {"Serviceability characteristics", "string", "Serviceability characteristics"}},
+					5: {0: {"Update Schedule", "string", "Update Schedule"},
+						1: {"Vendor Release Details", "string", "Vendor Release Details"}},
+					6: {0: {"Managed outside of DS", "select", "GU::Managed outside of DS"}},
+					7: {0: {"Serviceability characteristics", "string", "Serviceability characteristics"}},
 				},
 			},
 			2: {
@@ -1459,8 +1056,27 @@ func PacFields() modelFields {
 	}
 }
 
-func LacFields() modelFields {
-	return modelFields{}
+// If there isn't a specific layout, only show name and description
+func GenFields() modelFields {
+	return modelFields{
+		stringValues: map[string]*widget.Entry{
+			"Title":       widget.NewEntry(),
+			"Description": widget.NewMultiLineEntry(),
+		},
+		selectValues: map[string]*widget.Select{},
+		radioValues:  map[string]*widget.RadioGroup{},
+		checkValues:  map[string]*widget.CheckGroup{},
+		dateValues:   map[string]*widget.Entry{},
+		sections: map[int]sectionStruct{
+			0: {
+				title: "Key attributes",
+				fields: map[int]map[int]fieldsStruct{
+					0: {0: {"Name", "string", "Title"}},
+					1: {0: {"Description", "string", "Description"}},
+				},
+			},
+		},
+	}
 }
 
 /** Generic utility functions **/
