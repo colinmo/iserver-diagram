@@ -11,11 +11,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -839,8 +837,6 @@ func addToObjectStruct(allObjects *map[string]objectStruct, alias, name, ptype s
 	}
 }
 
-
-
 var PlantUMLStart = "@startuml Solution Context\n!include https://raw.githubusercontent.com/colinmo/iserver-diagram/main/togaf/togaf-full.puml\n"
 var PlantUMLEnd = "@enduml"
 
@@ -1016,7 +1012,8 @@ func PacFields() modelFields {
 					6: {0: {"Department (Requestor)", "string", "Department"},
 						1: {"Owner (DS Area)", "select", "Owner"}},
 					7: {0: {"Solution classification", "select", "GU::Solution Classification"},
-						1: {"Information security classification", "select", "GU::Information Security Classification"}},
+						1: {"Information security classification", "select", "GU::Information Security Classification"},
+						2: {"Visibility", "select", "GU::Object Visibility"}},
 					8: {0: {"Vendor", "string", "Vendor"},
 						1: {"Supplier", "string", "Supplier"}},
 				},
