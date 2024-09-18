@@ -10,6 +10,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -156,30 +157,6 @@ func main() {
 							},
 						),
 					),
-					/*
-						widget.NewToolbar(
-							widget.NewToolbarAction(
-								resourcePacPng,
-								func() {
-									createEditWindow(
-										"New Physical Application Component",
-										newPACTemplate(PacFields()),
-										[]azure.RelationStruct{},
-									)
-								},
-							),
-							widget.NewToolbarAction(
-								resourcePtcPng,
-								func() {
-									createEditWindow(
-										"New Physical Application Component",
-										newPTCTemplate(PtcFields()),
-										[]azure.RelationStruct{},
-									)
-								},
-							),
-						),
-					*/
 					nil,
 					widget.NewLabel("Looking for"),
 					searchButton,
@@ -210,7 +187,7 @@ func main() {
 				widget.NewButton("Excel Audit", func() {
 					UpdateMessage("Running")
 					az.CreateProductManagerOverviewReport(myApp.Preferences().StringWithFallback("Department", "nope"), getSavePath())
-					UpdateMessage("Complete")
+					UpdateMessage("Ready")
 				}),
 			)),
 		container.NewTabItem(
@@ -472,7 +449,7 @@ func ListRelationsToSelect(
 			allFields.dateValues[x.AttributeName].SetText(strings.Replace(x.StringValue, "T00:00:00Z", "", 1))
 		default:
 			message := fmt.Sprintf("Don't know who %s is\n", x.AttributeName)
-			fyne.LogError(message, fmt.Errorf(message))
+			fyne.LogError(message, errors.New(message))
 		}
 	}
 	knownKids := map[widget.TreeNodeID][]widget.TreeNodeID{}
@@ -967,14 +944,14 @@ func PacFields() modelFields {
 			"Vendor Release Details":         widget.NewEntry(),
 		},
 		selectValues: map[string]*widget.Select{
-			"Application Type":          widget.NewSelect([]string{}, func(bob string) {}),
-			"Operational Importance":    widget.NewSelect([]string{}, func(bob string) {}),
-			"Deployment Method":         widget.NewSelect([]string{}, func(bob string) {}),
-			"Build":                     widget.NewSelect([]string{}, func(bob string) {}),
-			"Owner":                     widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Domain":                widget.NewSelect([]string{}, func(bob string) {}),
-			"GU::Managed outside of DS": widget.NewSelect([]string{"True", "False"}, func(bob string) {}),
 			"GU::Information Security Classification": widget.NewSelect([]string{}, func(bob string) {}),
+			"Application Type":                        widget.NewSelect([]string{}, func(bob string) {}),
+			"Operational Importance":                  widget.NewSelect([]string{}, func(bob string) {}),
+			"Deployment Method":                       widget.NewSelect([]string{}, func(bob string) {}),
+			"Build":                                   widget.NewSelect([]string{}, func(bob string) {}),
+			"Owner":                                   widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Domain":                              widget.NewSelect([]string{}, func(bob string) {}),
+			"GU::Managed outside of DS":               widget.NewSelect([]string{"True", "False"}, func(bob string) {}),
 			"GU::Solution Classification":             widget.NewSelect([]string{}, func(bob string) {}),
 			"GU::Object Visibility":                   widget.NewSelect([]string{}, func(bob string) {}),
 			"Internal Recommendation":                 widget.NewSelect([]string{}, func(bob string) {}),
@@ -1025,8 +1002,12 @@ func PacFields() modelFields {
 					1: {0: {"Internal recommendation", "select", "Internal Recommendation"}},
 					2: {0: {"Date of Last Release", "date", "Date of Last Release"},
 						1: {"Date of Next Release", "date", "Date of Next Release"}},
-					3: {0: {"In development", "date", "Internal: In Development From"}, 1: {"Live", "date", "Internal: Live date"}, 2: {"Phasing out", "date", "Internal: Phase Out From"}, 3: {"Retirement", "date", "Internal: Retirement date"}},
-					4: {0: {"Vendor Contained From", "date", "Vendor: Contained From"}, 1: {"Vendor Out of Support", "date", "Vendor: Out of Support"}},
+					3: {0: {"In development", "date", "Internal: In Development From"},
+						1: {"Live", "date", "Internal: Live date"},
+						2: {"Phasing out", "date", "Internal: Phase Out From"},
+						3: {"Retirement", "date", "Internal: Retirement date"}},
+					4: {0: {"Vendor Contained From", "date", "Vendor: Contained From"},
+						1: {"Vendor Out of Support", "date", "Vendor: Out of Support"}},
 					5: {0: {"Update Schedule", "string", "Update Schedule"},
 						1: {"Vendor Release Details", "string", "Vendor Release Details"}},
 					6: {0: {"Managed outside of DS", "select", "GU::Managed outside of DS"}},
