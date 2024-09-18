@@ -172,6 +172,24 @@ func createRelationshipWindow(
 					}{}
 					objectSelect := widget.NewSelectEntry([]string{})
 					objectSelectList := map[string]string{}
+
+					handleObjectTypeChange := func(ch string) {
+						mike := az.GetRelationTypesForObjectType(
+							basics.ObjectType.Id,
+							objectTypesList[objectType.Text],
+						)
+						selects := []string{}
+						for id, obj := range mike {
+							relationshipTypesList[obj.Name] = struct {
+								id               string
+								typepair         string
+								leadobjecttypeid string
+							}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].LeadObjectTypeId}
+							selects = append(selects, obj.Name)
+						}
+						relationshipSelect.SetOptions(selects)
+					}
+					objectType.OnChanged = handleObjectTypeChange
 					addRelWindow.SetContent(
 						container.NewBorder(
 							nil,
@@ -242,44 +260,17 @@ func createRelationshipWindow(
 							container.New(
 								layout.NewFormLayout(),
 								widget.NewLabel("Object type"),
-								container.NewBorder(
-									nil,
-									nil,
-									nil,
-									widget.NewButtonWithIcon(
-										"",
-										theme.ListIcon(),
-										func() {
-											mike := az.GetRelationTypesForObjectType(
-												basics.ObjectType.Id,
-												objectTypesList[objectType.Text],
-											)
-											selects := []string{}
-											for id, obj := range mike {
-												relationshipTypesList[obj.Name] = struct {
-													id               string
-													typepair         string
-													leadobjecttypeid string
-												}{id, obj.RelationshipTypePairs[0].RelationshipTypePairId, obj.RelationshipTypePairs[0].LeadObjectTypeId}
-												selects = append(selects, obj.Name)
-											}
-											relationshipSelect.SetOptions(selects)
-										},
-									),
-									objectType,
-								),
+								objectType,
 								widget.NewLabel("Relationship"),
 								relationshipSelect,
-
 								widget.NewLabel("With object"),
 								container.NewBorder(
 									nil,
 									nil,
 									nil,
-
 									widget.NewButtonWithIcon(
 										"",
-										theme.ListIcon(),
+										theme.SearchIcon(),
 										func() {
 											az.FindMeInTypeThen(
 												objectSelect.Text,
