@@ -19,6 +19,57 @@ import (
 
 var defaultModel = "Baseline Architecture"
 
+var objectTypesList = map[string]string{
+	"Actor":                          "445f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Application Service":            "bc5f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Business Service":               "73d7af8c-5e52-ea11-a94c-28187852a561",
+	"Capability":                     "265f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Constraint":                     "535f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Data Entity":                    "625f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Interface":                      "a3b624e4-b642-ea11-a601-28187852aafd",
+	"Location":                       "cb5f5bb2-2eef-e811-9f2b-00155d26bcf8",
+	"Logical Application Component":  "7cb624e4-b642-ea11-a601-28187852aafd",
+	"Logical Data Component":         "96b624e4-b642-ea11-a601-28187852aafd",
+	"Logical Technology Component":   "070714ec-b642-ea11-a601-28187852aafd",
+	"Organization Unit":              "b0b624e4-b642-ea11-a601-28187852aafd",
+	"Physical Application Component": "6fb624e4-b642-ea11-a601-28187852aafd",
+	"Physical Data Component":        "37395db8-2eef-e811-9f2b-00155d26bcf8",
+	"Physical Technology Component":  "140714ec-b642-ea11-a601-28187852aafd",
+	"Physical Technology Group":      "5171e716-436d-ee11-9942-00224895c2e5",
+	"Principle":                      "70395db8-2eef-e811-9f2b-00155d26bcf8",
+	"Process":                        "7f395db8-2eef-e811-9f2b-00155d26bcf8",
+	"Product":                        "8e395db8-2eef-e811-9f2b-00155d26bcf8",
+	"Requirement":                    "9d395db8-2eef-e811-9f2b-00155d26bcf8",
+	"Risk":                           "b65f6dbe-2eef-e811-9f2b-00155d26bcf8",
+	"Role":                           "243a5db8-2eef-e811-9f2b-00155d26bcf8",
+	"Technology Service":             "52395db8-2eef-e811-9f2b-00155d26bcf8",
+}
+var ObjectTypesListLookup = map[string]string{
+	"445f5bb2-2eef-e811-9f2b-00155d26bcf8": "Actor",
+	"bc5f5bb2-2eef-e811-9f2b-00155d26bcf8": "Application Service",
+	"73d7af8c-5e52-ea11-a94c-28187852a561": "Business Service",
+	"265f5bb2-2eef-e811-9f2b-00155d26bcf8": "Capability",
+	"535f5bb2-2eef-e811-9f2b-00155d26bcf8": "Constraint",
+	"625f5bb2-2eef-e811-9f2b-00155d26bcf8": "Data Entity",
+	"a3b624e4-b642-ea11-a601-28187852aafd": "Interface",
+	"cb5f5bb2-2eef-e811-9f2b-00155d26bcf8": "Location",
+	"7cb624e4-b642-ea11-a601-28187852aafd": "Logical Application Component",
+	"96b624e4-b642-ea11-a601-28187852aafd": "Logical Data Component",
+	"070714ec-b642-ea11-a601-28187852aafd": "Logical Technology Component",
+	"b0b624e4-b642-ea11-a601-28187852aafd": "Organization Unit",
+	"6fb624e4-b642-ea11-a601-28187852aafd": "Physical Application Component",
+	"37395db8-2eef-e811-9f2b-00155d26bcf8": "Physical Data Component",
+	"140714ec-b642-ea11-a601-28187852aafd": "Physical Technology Component",
+	"5171e716-436d-ee11-9942-00224895c2e5": "Physical Technology Group",
+	"70395db8-2eef-e811-9f2b-00155d26bcf8": "Principle",
+	"7f395db8-2eef-e811-9f2b-00155d26bcf8": "Process",
+	"8e395db8-2eef-e811-9f2b-00155d26bcf8": "Product",
+	"9d395db8-2eef-e811-9f2b-00155d26bcf8": "Requirement",
+	"b65f6dbe-2eef-e811-9f2b-00155d26bcf8": "Risk",
+	"243a5db8-2eef-e811-9f2b-00155d26bcf8": "Role",
+	"52395db8-2eef-e811-9f2b-00155d26bcf8": "Technology Service",
+}
+
 func (a *AzureAuth) WhoAmI() {
 	mep, err := a.CallRestEndpoint("GET", "/odata/Me", []byte{}, "")
 	if err != nil {
@@ -392,13 +443,11 @@ func (a *AzureAuth) GetObjectsForTypeAndDepartmentWithoutOwners(objectType strin
 	bob := owners
 	for _, owner := range bob {
 		if strings.Contains(owner, "&") {
-			//owners[i] = strings.Replace(owner, "&", "\\u0026", -1)
 			owners = append(owners, strings.Replace(owner, "&", "and", -1))
 		} else if strings.Contains(owner, "and") {
 			owners = append(owners, strings.Replace(owner, "and", "&", -1))
 		}
 	}
-	fmt.Printf("Match against owners %v\n", owners)
 	filterQuery = fmt.Sprintf(
 		` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq '%s' and a/Values/any(b:b/Value eq '%s'))`+
 			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.Attributevalue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/any(b:b/value in ('Proposed','In Development','Live','Phasing Out')))`,
@@ -514,7 +563,7 @@ func (a *AzureAuth) DeleteARelationship(id string) error {
 		bytemep, err = io.ReadAll(mep)
 		json.Unmarshal(bytemep, &messageResponse)
 		if !messageResponse.Success {
-			return fmt.Errorf(messageResponse.SuccessMessage.MessageCode)
+			return fmt.Errorf("%s", messageResponse.SuccessMessage.MessageCode)
 		}
 		return err
 	}
@@ -534,4 +583,181 @@ type ODataResponse struct {
 	SuccessMessage ODataMessage   `json:"successMessage"`
 	Success        bool           `json:"success"`
 	Messages       []ODataMessage `json:"messages"`
+}
+
+// 2025
+
+func (a *AzureAuth) GetPACForRSDFDomain() []ObjectStruct {
+	type objects struct {
+		Value    []ObjectStruct `json:"value"`
+		NextLink string         `json:"@odata.nextLink"`
+	}
+	toReturn := []ObjectStruct{}
+	path := "/odata/Objects"
+	query := fmt.Sprintf(
+		`$filter=Model/Name eq '%s'`+
+			` and ObjectType/Name eq 'Physical Application Component'`+
+			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:b/Value eq 'Research, Specialised & Data Foundations'))`+
+			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/any(b:b/Value in ('In Development','Live')))`,
+		defaultModel)
+	query = strings.Replace(query, " ", "%20", -1)
+	for {
+		var oneCall objects
+		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			log.Fatalf("failed to call endpoint %v\n", err)
+		}
+		defer mep.Close()
+		bytemep, err := io.ReadAll(mep)
+		json.Unmarshal(bytemep, &oneCall)
+
+		if err != nil {
+			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		toReturn = append(toReturn, oneCall.Value...)
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			log.Printf("Failed to parse next")
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+	return toReturn
+}
+
+func (a *AzureAuth) GetDomainObjectsForHERM() []ObjectStruct {
+	// * PAC - Our specific applications
+	type objects struct {
+		Value    []ObjectStruct `json:"value"`
+		NextLink string         `json:"@odata.nextLink"`
+	}
+	toReturn := []ObjectStruct{}
+	path := "/odata/Objects"
+	query := fmt.Sprintf(
+		`$filter=Model/Name eq '%s'`+
+			` and ObjectType/Name eq 'Physical Application Component'`+
+			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'GU::Domain' and a/Values/any(b:b/Value eq 'Research, Specialised %%26 Data Foundations'))`+
+			` and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueChoice/any(a:a/AttributeName eq 'Lifecycle Status' and a/Values/any(b:b/Value in ('In Development','Live')))`,
+		defaultModel)
+	query = strings.Replace(query, " ", "%20", -1)
+	for {
+		var oneCall objects
+		mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			log.Fatalf("failed to call endpoint %v\n", err)
+		}
+		defer mep.Close()
+		bytemep, err := io.ReadAll(mep)
+		json.Unmarshal(bytemep, &oneCall)
+
+		if err != nil {
+			log.Fatalf("failed to read io.Reader %v\n", err)
+		}
+		toReturn = append(toReturn, oneCall.Value...)
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			log.Printf("Failed to parse next")
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+	return toReturn
+}
+
+func (a *AzureAuth) GetRelatedHERMObjects(objectsin []ObjectStruct) ([]ObjectStruct, []MinRelationship) {
+	// PAC links to PAC, LAC, PDC, PTC, CAP
+	// * CAP - BCM
+	// * LAC - ARM
+	// LAC links to LTC @todo
+	// * LTC - TRM
+	// PDC links to LDC @todo
+	// * LDC - DRM
+	type objects struct {
+		Value    []RelationshipStruct `json:"value"`
+		NextLink string               `json:"@odata.nextLink"`
+	}
+	toReturnObjects := []ObjectStruct{}
+	uniqueObjects := map[string]ObjectStruct{}
+	toReturnRelations := []MinRelationship{}
+	uniqueRelations := map[string]RelationshipStruct{}
+	// Convert objectsin to just ids
+	objectIds := []string{}
+	for _, x := range objectsin {
+		objectIds = append(objectIds, x.ObjectID)
+	}
+	relatedObjects := []string{
+		objectTypesList["Logical Application Component"],
+		objectTypesList["Physical Data Component"],
+		objectTypesList["Physical Technology Component"],
+		objectTypesList["Capability"],
+	}
+
+	path := "/odata/Relationships"
+	for _, query := range []string{
+		fmt.Sprintf(
+			`$expand=LeadObject($select=Name,ObjectTypeId),MemberObject($select=Name,ObjectTypeId)&`+
+				`$filter=Model/Name eq '%s'`+
+				` and LeadObjectId in (%s) and MemberObject/ObjectTypeId in (%s)`,
+			defaultModel,
+			strings.Join(objectIds, ","),
+			strings.Join(relatedObjects, ","),
+		),
+		fmt.Sprintf(
+			`$expand=LeadObject($select=Name,ObjectTypeId),MemberObject($select=Name,ObjectTypeId)&`+
+				`$filter=Model/Name eq '%s'`+
+				` and MemberObjectId in (%s) and LeadObject/ObjectTypeId in (%s)`,
+			defaultModel,
+			strings.Join(objectIds, ","),
+			strings.Join(relatedObjects, ","),
+		),
+	} {
+		query = strings.Replace(query, " ", "%20", -1)
+		for {
+			var oneCall objects
+			mep, err := a.CallRestEndpoint("GET", path, []byte{}, query)
+			if err != nil {
+				log.Fatalf("failed to call endpoint %v\n", err)
+			}
+			defer mep.Close()
+			bytemep, err := io.ReadAll(mep)
+			json.Unmarshal(bytemep, &oneCall)
+
+			if err != nil {
+				log.Fatalf("failed to read io.Reader %v\n", err)
+			}
+			for _, x := range oneCall.Value {
+				uniqueRelations[x.RelationshipId] = x
+				uniqueObjects[x.LeadObjectId] = ObjectStruct{ObjectID: x.LeadObjectId, Name: x.LeadObject.Name, ObjectType: ObjectTypeStruct{Name: ObjectTypesListLookup[x.LeadObject.ObjectTypeId]}}
+				uniqueObjects[x.MemberObjectId] = ObjectStruct{ObjectID: x.MemberObjectId, Name: x.MemberObject.Name, ObjectType: ObjectTypeStruct{Name: ObjectTypesListLookup[x.MemberObject.ObjectTypeId]}}
+			}
+			if len(oneCall.NextLink) == 0 {
+				break
+			}
+			bits, err := url.Parse(oneCall.NextLink)
+			if err != nil {
+				log.Printf("Failed to parse next")
+				break
+			}
+			path = bits.Path
+			query = bits.RawQuery
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	for _, x := range uniqueRelations {
+		toReturnRelations = append(toReturnRelations, MinRelationship{LeadObjectID: x.LeadObjectId, MemberObjectID: x.MemberObjectId, RelationshipType: ObjectTypesListLookup[x.RelationshipTypeId]})
+	}
+	for _, x := range uniqueObjects {
+		toReturnObjects = append(toReturnObjects, x)
+	}
+	return toReturnObjects, toReturnRelations
 }

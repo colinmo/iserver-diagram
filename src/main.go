@@ -189,6 +189,11 @@ func main() {
 					az.CreateProductManagerOverviewReport(myApp.Preferences().StringWithFallback("Department", "nope"), getSavePath())
 					UpdateMessage("Ready")
 				}),
+				widget.NewButton("HERM", func() {
+					UpdateMessage("Running")
+					CreateHERM()
+					UpdateMessage("Done")
+				}),
 			)),
 		container.NewTabItem(
 			"Settings",
@@ -329,7 +334,7 @@ func ListAndSelectAThing(things []azure.FindStruct, thenWindow *fyne.Window) {
 				me.SetIcon(resourceLacPng)
 				me.SetText("LAC")
 			default:
-				fmt.Printf("Dunno: %s\n", things[id].Type.Name)
+				// Do nothing
 			}
 			me.OnTapped = func() {
 				if map[string]bool{
@@ -668,18 +673,29 @@ func ShowManagersList(list map[string][]string, window *fyne.Window) {
 			item.(*widget.Label).SetText(keys[id])
 		},
 	)
-	var selectedThing string
+	var selectedThing, replaceThing string
 	listlist.OnSelected = func(id widget.ListItemID) {
 		selectedThing = keys[id]
 	}
 	windows[windowTitle].SetContent(
 		container.NewBorder(widget.NewForm(
 			widget.NewFormItem("Change PM", widget.NewSelect(pms, func(s string) {
-				fmt.Printf("Change the list to %s\n", s)
-				fmt.Printf("SI %v\n", selectedThing)
-				fmt.Printf("For all %v\n", list[selectedThing])
+				replaceThing = s
 			})),
-			widget.NewFormItem("", widget.NewButton("Update", func() {})),
+			widget.NewFormItem("", widget.NewButton("Update", func() {
+
+				dialog.ShowConfirm(
+					"Changing PM",
+					fmt.Sprintf("Change the project managers %s to %s", selectedThing, replaceThing),
+					func(ok bool) {
+						if ok {
+							// find all PAC/PTC that have the project manager selectedThing
+							// Replace the project manager in each with replaceThing
+						}
+					},
+					windows[windowTitle],
+				)
+			})),
 		),
 
 			nil,

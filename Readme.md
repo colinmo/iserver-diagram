@@ -26,3 +26,6 @@ Reads a logical/ physical application from iServer and guides turning it into a 
 ## Todo
 
 * [x] Alter the Display screen to provide a different form for PAC, PTC, and LAC things.
+* New ideas
+  * [ ] Build a report to mirror the HERM
+  * [ ] Use a Force Directed Graph to look for missing bits, see congreunce

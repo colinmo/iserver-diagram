@@ -13,3 +13,4 @@ src/main.go.bak
 .gitignore
 bin/*
 src/*.app
+src/force-graph-out.html
