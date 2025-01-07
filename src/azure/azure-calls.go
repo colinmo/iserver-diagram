@@ -699,7 +699,6 @@ func (a *AzureAuth) GetRelatedHERMObjects(objectsin []ObjectStruct) ([]ObjectStr
 		objectTypesList["Logical Application Component"],
 		objectTypesList["Physical Data Component"],
 		objectTypesList["Physical Technology Component"],
-		objectTypesList["Capability"],
 	}
 
 	path := "/odata/Relationships"
@@ -719,6 +718,22 @@ func (a *AzureAuth) GetRelatedHERMObjects(objectsin []ObjectStruct) ([]ObjectStr
 			defaultModel,
 			strings.Join(objectIds, ","),
 			strings.Join(relatedObjects, ","),
+		),
+		fmt.Sprintf(
+			`$expand=LeadObject($select=Name,ObjectTypeId),MemberObject($select=Name,ObjectTypeId)&`+
+				`$filter=Model/Name eq '%s'`+
+				` and LeadObjectId in (%s) and MemberObject/ObjectTypeId in (%s)`,
+			defaultModel,
+			strings.Join(objectIds, ","),
+			objectTypesList["Capability"],
+		),
+		fmt.Sprintf(
+			`$expand=LeadObject($select=Name,ObjectTypeId),MemberObject($select=Name,ObjectTypeId)&`+
+				`$filter=Model/Name eq '%s'`+
+				` and MemberObjectId in (%s) and LeadObject/ObjectTypeId in (%s)`,
+			defaultModel,
+			strings.Join(objectIds, ","),
+			objectTypesList["Capability"],
 		),
 	} {
 		query = strings.Replace(query, " ", "%20", -1)

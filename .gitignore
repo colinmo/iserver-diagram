@@ -14,3 +14,4 @@ src/main.go.bak
 bin/*
 src/*.app
 src/force-graph-out.html
+src/force-graph-out copy.html

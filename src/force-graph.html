@@ -2,30 +2,57 @@
 
 <head>
     <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js" integrity="sha512-wNH6xsp2n8CfB91nrBtfc4sfLwYPBMjSWVUwQOp60AYYXH6i8yCwuKFZ4rgK2i6pQek/b+bSyR7b01/922IBzQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        svg g.labels text {
+            display: none;
+            pointer-events: none;
+        }    </style>
 </head>
 
 <body>
-    <svg width="1024" height="960"></svg>
+    <svg width="2048" height="1920" viewBox="0 0 2048 1920" style="max-width: 100%; height: auto"><defs>
+        <filter x="0" y="0" width="1" height="1" id="solid">
+            <feFlood flood-color="white" result="bg" />
+            <feMerge>
+                <feMergeNode in="bg"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs></svg>
     <script>
         // Config
         const svg = d3.select('svg');
         const width = svg._groups[0][0].width.baseVal.value;
         const height = svg._groups[0][0].height.baseVal.value;
-        const colourSet = d3.scaleOrdinal(d3.schemeCategory10);
-        const groups = {
-            "Physical Application Component": 1,
-            "Physical Data Component": 2,
+        const colourSet = d3.scaleOrdinal(d3.schemeCategory10)
+            .domain([
+                "Physical Application Component",
+                "Physical Data Component",
+                "Capability",
+                "Physical Technology Component",
+                "Logical Application Component",
+            ]);
+        const zoom = d3.zoom()
+            .on('zoom', handleZoom);
+        function handleZoom(e) {
+            d3.select('svg g')
+                .attr('transform', e.transform)
+        }
+        function initZoom() {
+            d3.select('svg')
+                .call(zoom);
         }
 
         // Values
         const nodes = [
             {{ range .OBJS -}}
-            { id: "{{ .ObjectID }}", group: groups["{{ .ObjectType.Name }}"], name: "{{ .Name }}", type: "{{ .ObjectType.Name }}" },
+            { id: "{{ .ObjectID }}", group: "{{ .ObjectType.Name }}", name: "{{ .Name }}", type: "{{ .ObjectType.Name }}" },
             {{ end }}
         ];
         const links = [
             {{ range .LNKS -}}
-            { source: "{{ .LeadObjectID }}", target: "{{ .MemberObjectID }}", value: "9" },
+            { source: "{{ .LeadObjectID }}", target: "{{ .MemberObjectID }}", value: "3" },
             {{ end }}
         ];
 
@@ -36,29 +63,33 @@
             .force("center", d3.forceCenter(width / 2, height / 2));
 
         // Drawing
-        const link = svg.append("g")
+        const canvas = svg.append("g")
+        const link = canvas.append("g")
             .attr("class", "links")
             .selectAll("line")
             .data(links)
             .enter()
             .append("line")
-            .attr('stroke', d => '#f00')
+            .attr('stroke', d => '#000')
             .attr("stroke-width", d => Math.sqrt(d.value));
-        const node = svg.append("g")
+        const node = canvas.append("g")
             .attr("class", "nodes")
             .selectAll("circle")
             .data(nodes)
             .enter()
             .append("circle")
-            .attr("r", 5)
+            .attr("r", 6)
+            .attr("data-id", d => `${d.id}`)
             .attr("fill", d => colourSet(d.group));
-        const text = svg.append("g")
+        const text = canvas.append("g")
             .attr("class", "labels")
             .selectAll("text")
             .data(nodes)
             .enter().append("text")
             .attr("dx", 12)
             .attr("dy", ".35em")
+            .attr("data-id", d => `${d.id}`)
+            .attr("filter", "url(#solid)")
             .text(function (d) { return d.name });
 
         // Refreshing
@@ -87,7 +118,45 @@
             return d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended);
         }
         node.call(drag(simulation));
+        d3.selectAll("circle")
+            .on("mouseover", function() {
+                const mylabel = document.querySelector(`.labels text[data-id="${this.dataset.id}"`)
+                mylabel.style.display = 'block';
+            })
+            .on("mouseout", function() {
+                const mylabel = document.querySelector(`.labels text[data-id="${this.dataset.id}"`)
+                mylabel.style.display = 'none';
+            })
+        initZoom()
+
+        svg.append("g")
+            .attr("class", "legendOrdinal")
+            .attr("transform", "translate(20,20)");
+
+        var legendOrdinal = d3.legendColor()
+            .shape("path", d3.symbol().type(d3.symbolTriangle).size(150)())
+            .shapePadding(10)
+            //use cellFilter to hide the "e" cell
+            .cellFilter(function (d) { return d.label !== "e" })
+            .scale(colourSet);
+
+        svg.select(".legendOrdinal")
+            .call(legendOrdinal);
     </script>
+    <table>
+        <thead><tr><th>PAC</th><th>PTC</th><th>LTCs</th><th>PDCs</th><th>CAPs</th></tr></thead>
+        <tbody>
+            {{ range .PACRELS -}}
+            <tr>
+                <td>{{ .Name }}</td>
+                <td>{{ index .Relations "Physical Technology Component" }}</td>
+                <td>{{ index .Relations "Logical Technology Component" }}</td>
+                <td>{{ index .Relations "Physical Data Component" }}</td>
+                <td>{{ index .Relations "Capability" }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
 </body>
 
 </html>

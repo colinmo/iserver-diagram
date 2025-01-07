@@ -330,7 +330,7 @@ func createRelationshipWindow(
 							if len(errors) == 0 {
 								dialog.ShowInformation("Successful deletion", "", *thenWindow)
 							} else {
-								dialog.ShowError(fmt.Errorf("the following messages were returned from the endpoint:\n"+strings.Join(errors, "\n")), *thenWindow)
+								dialog.ShowError(fmt.Errorf("the following messages were returned from the endpoint:\n%s", strings.Join(errors, "\n")), *thenWindow)
 							}
 						},
 						*thenWindow,
