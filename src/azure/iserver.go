@@ -497,6 +497,68 @@ func (a *AzureAuth) GetProductManagersThen(department string, putInto laterStrin
 	putInto(toReturn, thenWindow)
 }
 
+func (a *AzureAuth) ReplaceProductManagers(original, newhotness string) (int, error) {
+	changed := 0
+	var err error
+	tochange := []string{}
+
+	type objects struct {
+		Value    []IServerObjectStruct `json:"value"`
+		NextLink string                `json:"@odata.nextLink"`
+	}
+
+	// Get All To Change
+	path := "/odata/Objects"
+	query := fmt.Sprintf(
+		`$select=ObjectId&$filter=Model/Name eq 'Baseline Architecture' and ObjectType/Name in ('Physical Application Component','Logical Application Component','Physical Technology Component') and AttributeValues/OfficeArchitect.Contracts.OData.Model.AttributeValue.AttributeValueText/any(a:a/AttributeName eq 'Owner' and a/Value eq '%s')`,
+		original,
+	)
+	query = strings.ReplaceAll(query, " ", "%20")
+	var mep io.ReadCloser
+	var bytemep []byte
+	for {
+		var oneCall objects
+		mep, err = a.CallRestEndpoint("GET", path, []byte{}, query)
+		if err != nil {
+			break
+		}
+		defer mep.Close()
+		bytemep, err = io.ReadAll(mep)
+		json.Unmarshal(bytemep, &oneCall)
+
+		if err != nil {
+			break
+		}
+		for _, x := range oneCall.Value {
+			tochange = append(tochange, x.ObjectId)
+		}
+		if len(oneCall.NextLink) == 0 {
+			break
+		}
+		bits, err := url.Parse(oneCall.NextLink)
+		if err != nil {
+			break
+		}
+		path = bits.Path
+		query = bits.RawQuery
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if err == nil {
+		// Change 'empath := "/odata/Objects"
+		replaceBody := []byte(fmt.Sprintf(`{"AttributeValuesFlat": {"Owner":"%s"}}`, newhotness))
+		for _, y := range tochange {
+			_, err = a.CallRestEndpoint("PATCH", fmt.Sprintf(`/odata/Objects/%s`, y), replaceBody, ``)
+			if err != nil {
+				break
+			}
+			changed = changed + 1
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	return changed, err
+}
+
 func (a *AzureAuth) GetDomainThen(department string, putInto laterDomainOwned, thenWindow fyne.Window) {
 	toReturn := map[string][]IServerObjectStruct{}
 
